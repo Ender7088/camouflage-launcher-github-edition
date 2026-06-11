@@ -1,1 +1,1 @@
-# camouflage-launcher
+# camouflage-launcher-github-edition
