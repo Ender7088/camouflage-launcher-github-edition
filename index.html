@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camouflage Launcher</title>
+    <style>
+        @import url('Fonts/static/Roboto_Condensed-Bold.ttf');
+        * {
+            margin: 0;
+            padding: 0;
+            font-family: "Roboto", sans-serif;
+            z-index: 0;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: rgb(14, 20, 31);
+        }
+        .content {
+            display: flex;
+            flex-direction: row;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            margin-top: 10rem;
+        }
+        .card {
+            background: linear-gradient(to bottom right, rgba(128, 128, 128, 0.599), rgba(104, 100, 100, 0.599), rgba(128, 128, 128, 0.599));
+            width: 15rem;
+            height: 10rem;
+            position: relative;
+            margin: 10px;
+            border-radius: 1vh;
+            transition: all 0.2s ease;
+            filter: brightness(75%);
+        }
+        .card:hover h2 {
+            opacity: 1;
+        }
+        .card h2 {
+            bottom: -20%;
+            position: absolute;
+            right: 50%;
+            transform: translateX(50%);
+            padding: 10px;
+            color: rgb(215, 207, 207);
+            z-index: 2;
+            transition: 0.2s ease;
+            opacity: 0;
+            background: rgb(2, 166, 70);
+            border: white solid 0.35rem;
+            border-radius: 100vh;
+            width: 5rem;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+        }
+        .card img {
+            width: 100%;
+            height: 100%;
+            border-radius: 1vh;
+        }
+        .card:hover {
+            transform: perspective(1000px) translateZ(130px);
+            z-index: 1;
+            filter: brightness(100%);
+        }
+        .sidebar {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            height: auto;
+            background: rgb(0, 181, 0);
+            border-bottom: solid white 0.4rem;
+            display: flex;
+            justify-content: center;
+            flex-direction: row;
+            z-index: 1;
+            display: flex;
+        }
+        .sidebar ul {
+            text-decoration: none;
+            list-style-type: none;
+            height: 2.5rem;
+            width: 2.5rem;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            flex-direction: row;
+            gap: 20px;
+        }
+        .sidebar li {
+            height: 2.5rem;
+            width: 2.5rem;
+        }
+        .sidebar img {
+            height: 2.5rem;
+            width: 2.5rem;
+            transition: box-shadow 0.5s ease;
+        }
+        .sidebar img:hover {
+            box-shadow: 1px 1px 10px white;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <ul>
+            <li><img onclick="window.location.href = 'index.html'" src="images/home.png"></li>
+            <li><img onclick="window.location.href = 'science.html'" src="images/search.png"></li>
+        </ul>
+    </div>
+    <div class="content">
+        <div class="card">
+            <img src="images/cookieclicker.jpeg">
+            <h2 onclick="window.location.href = 'games/cookieclicker/index.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/eaglercraft.jpg">
+            <h2 onclick="window.location.href = 'games/eaglercraft.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/agario-lite.jpg">
+            <h2 onclick="window.location.href = 'games/agariolite.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/btd1.jpg">
+            <h2 onclick="window.location.href = 'games/bloonstowerdefense1.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/btd2.jpg">
+            <h2 onclick="window.location.href = 'games/bloonstowerdefense2.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/btd5.jpg">
+            <h2 onclick="window.location.href = 'games/bloonstowerdefense5.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/bloxorz.jpg">
+            <h2 onclick="window.location.href = 'games/bloxorz.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/breaking-the-bank.jpeg">
+            <h2 onclick="window.location.href = 'games/breakingthebank.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/celeste.jpg">
+            <h2 onclick="window.location.href = 'games/celeste.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/edgenotfound.jpg">
+            <h2 onclick="window.location.href = 'games/edgenotfound.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/escapingtheprison.jpg">
+            <h2 onclick="window.location.href = 'games/escapingtheprison.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/evilglitch.jpg">
+            <h2 onclick="window.location.href = 'games/evilglitch.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/fleeingthecomplex.jpg">
+            <h2 onclick="window.location.href = 'games/fleeingthecomplex.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/flood-runner-4.jpg">
+            <h2 onclick="window.location.href = 'games/floodrunner4.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/fluidsim.jpg">
+            <h2 onclick="window.location.href = 'games/fluidsimulator.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/geodash.jpg">
+            <h2 onclick="window.location.href = 'games/geometrydash.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/holeio.jpg">
+            <h2 onclick="window.location.href = 'games/holeio.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/infiltratingairship.jpg">
+            <h2 onclick="window.location.href = 'games/infiltratingtheairship.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/itsrainingboxes.jpg">
+            <h2 onclick="window.location.href = 'games/itsrainingboxes.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/JustOneBoss.png">
+            <h2 onclick="window.location.href = 'games/justoneboss.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/learntofly.jpg">
+            <h2 onclick="window.location.href = 'games/learntofly1.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/learn2fly.png">
+            <h2 onclick="window.location.href = 'games/learntofly2.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/learntofly3.jpg">
+            <h2 onclick="window.location.href = 'games/learntofly3.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/learntoflyidle.jpg">
+            <h2 onclick="window.location.href = 'games/learntoflyidle.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/mountainmaze.png">
+            <h2 onclick="window.location.href = 'games/mountainmaze.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/ninjavsevilcorp.png">
+            <h2 onclick="window.location.href = 'games/ninjavsevilcorp.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/offlineparadise.jpg">
+            <h2 onclick="window.location.href = 'games/offlineparadise.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/radiusraid.png">
+            <h2 onclick="window.location.href = 'games/radiusraid.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/raftwars.jpg">
+            <h2 onclick="window.location.href = 'games/raftwars.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/raftwars2.jpg">
+            <h2 onclick="window.location.href = 'games/raftwars2.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/rolling-forests.jpg">
+            <h2 onclick="window.location.href = 'games/rollingforests.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/sandbox.jpg">
+            <h2 onclick="window.location.href = 'games/sandgame.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/slope.jpg">
+            <h2 onclick="window.location.href = 'games/slope.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/spacebar.png">
+            <h2 onclick="window.location.href = 'games/spacebarclicker.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/stack.jpeg">
+            <h2 onclick="window.location.href = 'games/stack.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/stealingthediamond.jpg">
+            <h2 onclick="window.location.href = 'games/stealingthediamond.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/stickman-hook.jpg">
+            <h2 onclick="window.location.href = 'games/stickmanhook.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/sm64.jpg">
+            <h2 onclick="window.location.href = 'games/supermario64.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/tetris.jpg">
+            <h2 onclick="window.location.href = 'games/tetris.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/theimpossiblequiz.png">
+            <h2 onclick="window.location.href = 'games/theimpossiblequiz.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/trex.png">
+            <h2 onclick="window.location.href = 'games/trex.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/tubejumpers.png">
+            <h2 onclick="window.location.href = 'games/tubejumpers.html'">Play</h2>
+        </div>
+        <div class="card">
+            <img src="images/WorldsHardestGame.jpg">
+            <h2 onclick="window.location.href = 'games/worldshardestgame.html'">Play</h2>
+        </div>
+    </div>
+</body>
+</html>
+<script>
+
+</script>
