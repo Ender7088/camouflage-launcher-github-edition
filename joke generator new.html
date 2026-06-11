@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MemeTerminal | ResponsiveVoice Edition</title>
+    <script src="https://code.responsivevoice.org/responsivevoice.js"></script>
+    <style>
+        :root {
+            --bg: #000000; --text: #e1e7ef;
+            --green: #00ff88; --red: #ff3366; --blue: #3d94ff; --orange: #ff6a00; --gold: #f4c430;
+            --border: #232d39;
+        }
+        body { font-family: 'Courier New', monospace; background-color: var(--bg); color: var(--text); margin: 0; overflow: hidden; }
+        
+        #game-screen { display: grid; grid-template-columns: 1fr 1fr 1fr; height: 100vh; width: 100vw; box-sizing: border-box; }
+        .radio-box { background: #000; border-right: 1px solid var(--border); padding: 20px; overflow-y: auto; font-size: 14px; position: relative; height: 100vh; box-sizing: border-box; }
+        
+        .header-container { position: sticky; top: 0; background: #000; padding-bottom: 10px; z-index: 10; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border); margin-bottom: 15px;}
+        .controls { display: flex; gap: 5px; }
+        
+        .msg-entry { margin-bottom: 15px; padding: 10px; border-left: 3px solid; background: rgba(255,255,255,0.03); word-wrap: break-word; }
+
+        #save-btn { position: fixed; bottom: 5px; right: 5px; background: #333; color: #fff; font-size: 8px; padding: 2px 4px; z-index: 100; opacity: 0.6; cursor: pointer; border: 1px solid #555;}
+        #save-btn:hover { background: var(--green); color: #000; opacity: 1; }
+        
+        .tts-btn { background: #111; font-family: 'Courier New', monospace; font-size: 10px; cursor: pointer; border: 1px solid; padding: 4px 6px; font-weight: bold; transition: 0.2s; color: inherit; border-color: inherit;}
+        .tts-btn:hover { background: #333; transform: scale(1.05); }
+
+        .auto-btn { background: transparent; color: #888; border: 1px solid #555; cursor: pointer; font-family: monospace; font-size: 10px; padding: 4px 6px; transition: 0.2s; font-weight: bold;}
+        .auto-btn.active { color: #000; background: var(--green); border-color: var(--green); }
+
+        #secret-input { position: fixed; top: 0; right: 0; width: 20px; height: 20px; opacity: 0.01; z-index: 600; }
+
+        /* BOSS FIGHT OVERLAY */
+        #boss-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; cursor: crosshair; }
+        #boss-ui { position: absolute; top: 20px; width: 100%; text-align: center; pointer-events: none; }
+        #boss-hp-bar { width: 80%; height: 15px; background: #333; margin: 10px auto; border: 2px solid #ff3366; }
+        #boss-hp-fill { width: 100%; height: 100%; background: var(--red); box-shadow: 0 0 15px var(--red); transition: width 0.1s; }
+        #player-status { color: var(--blue); font-size: 18px; font-weight: bold; margin-top: 10px; letter-spacing: 2px; }
+        
+        canvas { display: block; background: radial-gradient(circle, #1a0505 0%, #000 100%); }
+        
+        #death-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10000; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--green); }
+    </style>
+</head>
+<body>
+
+<input type="text" id="secret-input" autocomplete="off" onkeyup="checkSecret(this.value)">
+<button id="save-btn" onclick="saveLogs()">SAVE</button>
+
+<div id="game-screen">
+    <div class="radio-box">
+        <div class="header-container" style="color:var(--blue);">
+            <strong>[ATC] SKY_WATCH</strong>
+            <div class="controls">
+                <button id="auto-krispy" class="auto-btn" onclick="toggleChannelAuto('krispy', 'Sky Watch')">🎙️ AUTO: OFF</button>
+                <button class="tts-btn" onclick="readFeedAloud('krispy-feed')">🔊 READ ALL</button>
+            </div>
+        </div>
+        <div id="krispy-feed"></div>
+    </div>
+    
+    <div class="radio-box">
+        <div class="header-container" style="color:var(--orange);">
+            <strong>[DB] THE_LEGEND</strong>
+            <div class="controls">
+                <button id="auto-chuck" class="auto-btn" onclick="toggleChannelAuto('chuck', 'The Legend')">🎙️ AUTO: OFF</button>
+                <button class="tts-btn" onclick="readFeedAloud('chuck-feed')">🔊 READ ALL</button>
+            </div>
+        </div>
+        <div id="chuck-feed"></div>
+    </div>
+    
+    <div class="radio-box">
+        <div class="header-container" style="color:var(--red);">
+            <strong>[BR] CRINGE_VAULT</strong>
+            <div class="controls">
+                <button id="auto-dad" class="auto-btn" onclick="toggleChannelAuto('dad', 'Cringe Vault')">🎙️ AUTO: OFF</button>
+                <button class="tts-btn" onclick="readFeedAloud('dad-feed')">🔊 READ ALL</button>
+            </div>
+        </div>
+        <div id="dad-feed"></div>
+    </div>
+</div>
+
+<div id="boss-screen">
+    <div id="boss-ui">
+        <h1 id="boss-title" style="color: white; margin: 0; font-size: 24px; letter-spacing: 15px; text-shadow: 0 0 10px red;">CHUCK NORRIS</h1>
+        <div id="boss-hp-bar"><div id="boss-hp-fill"></div></div>
+        <div id="player-status">PLAYER LIVES: <span id="life-count">3</span></div>
+        <div id="attack-name" style="color: var(--orange); font-size: 16px; font-weight: bold; font-style: italic; margin-top: 10px;">MEME PROTOCOL: ENGAGED</div>
+    </div>
+    <canvas id="arena"></canvas>
+</div>
+
+<div id="death-screen">
+    <h1 id="end-title" style="font-size: 72px; color: var(--red);">YOU DIED</h1>
+    <p>Survival Time: <span id="survival-timer" style="color: var(--orange); font-size: 24px; font-weight: bold;">0</span>s</p>
+    <p id="chuck-remark" style="font-style: italic; color: #aaa; margin-top: 20px; font-size: 18px; max-width: 600px;"></p>
+    <button onclick="location.reload()" style="margin-top: 40px; padding: 15px 30px; background: #333; color: white; border: 2px solid #555; cursor: pointer; font-family: monospace; font-size: 18px;">TRY AGAIN</button>
+</div>
+
+<script>
+    // --- RESPONSIVE VOICE TTS ENGINE ---
+    let channelAuto = { krispy: false, chuck: false, dad: false };
+
+    function toggleChannelAuto(cat, displayName) {
+        channelAuto[cat] = !channelAuto[cat];
+        const btn = document.getElementById(`auto-${cat}`);
+        
+        if (channelAuto[cat]) {
+            btn.className = 'auto-btn active';
+            btn.innerText = '🎙️ AUTO: ON';
+            speakSingleLine(`Monitoring ${displayName}.`); 
+        } else {
+            btn.className = 'auto-btn';
+            btn.innerText = '🎙️ AUTO: OFF';
+            if(window.responsiveVoice) responsiveVoice.cancel(); 
+        }
+    }
+
+    function speakSingleLine(text) {
+        if(document.getElementById('boss-screen').style.display === 'block') return; 
+
+        let cleanText = text.replace('> ', '').replace('[SYSTEM]', 'System alert:');
+        
+        if(window.responsiveVoice) {
+            // Apply US English Male with customized Chuck Norris pacing/pitch
+            responsiveVoice.speak(cleanText, "US English Male", {
+                pitch: 0.8,
+                rate: 0.95
+            });
+        }
+    }
+
+    function readFeedAloud(feedId) {
+        if(window.responsiveVoice) responsiveVoice.cancel(); 
+        const feed = document.getElementById(feedId);
+        if(feed.children.length === 0) return;
+
+        const textToRead = Array.from(feed.children).map(msg => msg.innerText).join('. '); 
+        speakSingleLine(textToRead);
+    }
+
+    // --- NON-REPEATING TERMINAL LOGIC ---
+    const masterJokes = {
+        krispy: [
+            "Ryanair landing: 10/10 on the Richter scale.", 
+            "Tower: Spirit 1, say altitude. Pilot: Altitude.", 
+            "Plane spotting: That's a big bird.",
+            "Delta stands for: Doesn't Ever Leave The Airport.",
+            "That wasn't a hard landing, the runway just came up to meet us.",
+            "Pilot: 'Requesting direct to destination.' ATC: 'Best I can do is a holding pattern.'"
+        ],
+        chuck: [
+            "Chuck Norris doesn't sleep. He waits.", 
+            "Chuck Norris can dribble a bowling ball.", 
+            "Chuck Norris makes onions cry.",
+            "Chuck Norris counted to infinity. Twice.",
+            "When Chuck Norris does a pushup, he's pushing the Earth down.",
+            "Chuck Norris threw a grenade and killed 50 people, then it exploded.",
+            "Chuck Norris can divide by zero."
+        ],
+        dad: [
+            "What's orange and sounds like a parrot? A carrot.", 
+            "I'm on a seafood diet. I see food and eat it.",
+            "I'm reading a book on anti-gravity. It's impossible to put down!",
+            "Did you hear about the guy who invented the Lifesaver? They say he made a mint.",
+            "What do you call a fake noodle? An Impasta.",
+            "I told my wife she was drawing her eyebrows too high. She looked surprised."
+        ]
+    };
+
+    let availableJokes = { krispy: [...masterJokes.krispy], chuck: [...masterJokes.chuck], dad: [...masterJokes.dad] };
+
+    function post(id, cat, col) {
+        if(document.getElementById('boss-screen').style.display === 'block') return;
+        const c = document.getElementById(id);
+        let msgToPrint = "";
+
+        if (availableJokes[cat].length === 0) {
+            availableJokes[cat] = [...masterJokes[cat]];
+            msgToPrint = "[SYSTEM] " + cat.toUpperCase() + " database depleted. Cycling archives...";
+            const sysD = document.createElement('div');
+            sysD.className = "msg-entry"; sysD.style.color = "#666"; sysD.style.borderColor = "#666";
+            sysD.innerText = "> " + msgToPrint;
+            c.appendChild(sysD);
+            if (channelAuto[cat]) speakSingleLine(msgToPrint);
+        }
+
+        const randomIndex = Math.floor(Math.random() * availableJokes[cat].length);
+        const j = availableJokes[cat].splice(randomIndex, 1)[0];
+
+        const d = document.createElement('div');
+        d.className = "msg-entry"; d.style.color = col; d.style.borderColor = col;
+        d.innerText = "> " + j;
+        c.appendChild(d); c.scrollTop = c.scrollHeight;
+        
+        if(c.children.length > 30) c.removeChild(c.firstChild);
+        
+        if (channelAuto[cat]) speakSingleLine(j);
+    }
+
+    setInterval(() => post('krispy-feed', 'krispy', 'var(--blue)'), 5000);
+    setInterval(() => post('chuck-feed', 'chuck', 'var(--orange)'), 6000);
+    setInterval(() => post('dad-feed', 'dad', 'var(--red)'), 7000);
+
+    function checkSecret(v) { if(v.toLowerCase() === 'chuck norris') startBoss(); }
+
+    function saveLogs() {
+        const krispyLogs = Array.from(document.getElementById('krispy-feed').children).map(e => e.innerText).join('\n');
+        const chuckLogs = Array.from(document.getElementById('chuck-feed').children).map(e => e.innerText).join('\n');
+        const dadLogs = Array.from(document.getElementById('dad-feed').children).map(e => e.innerText).join('\n');
+        let text = "--- MEME TERMINAL LOGS ---\n\n[SKY_WATCH]\n" + krispyLogs + "\n\n[THE_LEGEND]\n" + chuckLogs + "\n\n[CRINGE_VAULT]\n" + dadLogs;
+        const blob = new Blob([text], {type: 'text/plain'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'meme_log.txt'; a.click();
+    }
+
+    // --- BOSS LOGIC ---
+    const canvas = document.getElementById('arena');
+    const ctx = canvas.getContext('2d');
+    const bossImg = new Image();
+    bossImg.src = 'chuck.jpeg';
+
+    let player = { x: 0, y: 0, r: 5, hp: 3, invuln: 0 }; 
+    let projectiles = [];
+    let playerBullets = [];
+    let isShooting = false;
+    let boss = { x: 0, y: 150, phase: -1, phaseTimer: 0, attackSpeed: 1, hp: 7500, maxHp: 7500 };
+    let frame = 0, gameActive = false, startTime = 0;
+
+    const phaseNames = ["TRIPLE ROUNDHOUSE", "EARTH PUSH-UP", "COUNT TO INFINITY", "THE STARE DOWN", "TEXAS SPREAD", "DIVIDE BY ZERO"];
+
+    function startBoss() {
+        if(window.responsiveVoice) responsiveVoice.cancel(); 
+        channelAuto = { krispy: false, chuck: false, dad: false };
+        
+        document.getElementById('game-screen').style.display = 'none';
+        document.getElementById('save-btn').style.display = 'none';
+        document.getElementById('boss-screen').style.display = 'block';
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        boss.x = canvas.width / 2;
+        gameActive = true;
+        startTime = Date.now();
+        
+        window.addEventListener('mousemove', e => { player.x = e.clientX; player.y = e.clientY; });
+        window.addEventListener('mousedown', () => isShooting = true);
+        window.addEventListener('mouseup', () => isShooting = false);
+        
+        requestAnimationFrame(update);
+    }
+
+    function spawnBullet(x, y, vx, vy, size = 6, type = 'normal', color = '#ff3366') { projectiles.push({ x, y, vx, vy, size, type, color, age: 0 }); }
+
+    function update() {
+        if(!gameActive) return;
+        frame++;
+        ctx.clearRect(0,0,canvas.width, canvas.height);
+
+        let pulse = Math.sin(frame * 0.05) * 10;
+        
+        if(bossImg.complete && bossImg.naturalWidth !== 0) {
+            ctx.drawImage(bossImg, boss.x - 100 - pulse/2, boss.y - 100 - pulse/2, 200 + pulse, 200 + pulse);
+        } else {
+            ctx.fillStyle = "darkred"; ctx.fillRect(boss.x - 100 - pulse/2, boss.y - 100 - pulse/2, 200 + pulse, 200 + pulse);
+        }
+
+        if(player.invuln > 0) player.invuln--;
+        if(isShooting && frame % 4 === 0) playerBullets.push({ x: player.x, y: player.y, vy: -18, size: 5 });
+
+        ctx.fillStyle = "var(--green)";
+        for(let i = playerBullets.length - 1; i >= 0; i--) {
+            let pb = playerBullets[i];
+            pb.y += pb.vy;
+            ctx.beginPath(); ctx.arc(pb.x, pb.y, pb.size, 0, Math.PI*2); ctx.fill();
+
+            if(pb.y > boss.y - 100 && pb.y < boss.y + 100 && pb.x > boss.x - 100 && pb.x < boss.x + 100) {
+                boss.hp -= 10;
+                document.getElementById('boss-hp-fill').style.width = Math.max(0, (boss.hp / boss.maxHp * 100)) + "%";
+                playerBullets.splice(i, 1);
+                if(boss.hp <= 0) { winGame(); return; }
+                continue;
+            }
+            if(pb.y < -50) playerBullets.splice(i, 1);
+        }
+
+        boss.attackSpeed = Math.min(1.8, 1 + (frame / 2000));
+        boss.phaseTimer++;
+        if(boss.phaseTimer > 200 / boss.attackSpeed) { 
+            boss.phase = Math.floor(Math.random() * 6);
+            boss.phaseTimer = 0;
+            document.getElementById('attack-name').innerText = "PROTOCOL: " + phaseNames[boss.phase];
+        }
+
+        if(boss.phase === 0) { 
+            if(frame % Math.max(2, Math.floor(4/boss.attackSpeed)) === 0) {
+                let angle = frame * 0.03 * boss.attackSpeed;
+                for(let i=0; i<3; i++) { let a = angle + (i * (Math.PI*2)/3); spawnBullet(boss.x, boss.y, Math.cos(a)*10, Math.sin(a)*10, 12, 'normal', '#ff6a00'); }
+            }
+        } 
+        else if(boss.phase === 1) { 
+            if(frame % Math.max(15, Math.floor(30/boss.attackSpeed)) === 0) {
+                let safeZone = Math.random() * canvas.width;
+                for(let i = 0; i < canvas.width; i += 40) { if(Math.abs(i - safeZone) > 80) spawnBullet(i + (Math.random()*10), canvas.height, 0, -6 * boss.attackSpeed, 8, 'normal', '#00ff88'); }
+            }
+        } 
+        else if(boss.phase === 2) { 
+            if(frame % Math.max(30, Math.floor(60/boss.attackSpeed)) === 0) {
+                let gapAngle = Math.random() * Math.PI * 2;
+                for(let i = 0; i < 45; i++) { 
+                    let a = (i/45) * Math.PI * 2;
+                    if(Math.abs(a - gapAngle) > 0.35 && Math.abs(a - gapAngle) < (Math.PI*2 - 0.35)) spawnBullet(boss.x + Math.cos(a)*800, boss.y + Math.sin(a)*800, -Math.cos(a)*4, -Math.sin(a)*4, 10, 'normal', '#b052ff');
+                }
+            }
+        }
+        else if(boss.phase === 3) { 
+            if(frame % Math.max(15, Math.floor(35/boss.attackSpeed)) === 0) spawnBullet(boss.x + (Math.random()*150-75), boss.y, 0, 0, 8, 'homing', '#ffffff');
+        }
+        else if(boss.phase === 4) { 
+            if(frame % Math.max(6, Math.floor(15/boss.attackSpeed)) === 0) {
+                let dx = player.x - boss.x, dy = player.y - boss.y;
+                let baseAngle = Math.atan2(dy, dx);
+                for(let i = -2; i <= 2; i++) { let a = baseAngle + (i * 0.15); spawnBullet(boss.x, boss.y, Math.cos(a)*12, Math.sin(a)*12, 7, 'normal', '#ff3366'); }
+            }
+        }
+        else if(boss.phase === 5) { 
+            player.x += (boss.x - player.x) * 0.015 * boss.attackSpeed; 
+            player.y += (boss.y - player.y) * 0.015 * boss.attackSpeed;
+            if(frame % Math.max(2, Math.floor(4/boss.attackSpeed)) === 0) spawnBullet(Math.random()*canvas.width, 0, (Math.random()-0.5)*8, Math.random()*10 + 5, Math.random()*15 + 5, 'normal', '#555');
+        }
+
+        for(let i = projectiles.length-1; i>=0; i--) {
+            let p = projectiles[i];
+            p.age++;
+
+            if(p.type === 'homing') {
+                if(p.age < 45) { p.x += (Math.random()-0.5) * 4; p.y += (Math.random()-0.5) * 4; } 
+                else if (p.age === 45) { let dx = player.x - p.x, dy = player.y - p.y; let dist = Math.sqrt(dx*dx + dy*dy); p.vx = (dx/dist) * 18; p.vy = (dy/dist) * 18; }
+            }
+
+            p.x += p.vx; p.y += p.vy;
+            ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+
+            let dist = Math.sqrt((p.x-player.x)**2 + (p.y-player.y)**2);
+            if(dist < p.size + player.r - 2 && player.invuln <= 0) {
+                player.hp -= 1;
+                player.invuln = 60; 
+                document.getElementById('life-count').innerText = player.hp;
+                document.getElementById('boss-screen').style.transform = `translate(${Math.random()*20-10}px, ${Math.random()*20-10}px)`;
+                setTimeout(() => document.getElementById('boss-screen').style.transform = 'none', 50);
+                if(player.hp <= 0) { loseGame(); return; }
+            }
+            if(p.x < -100 || p.x > canvas.width+100 || p.y < -100 || p.y > canvas.height+100) projectiles.splice(i, 1);
+        }
+
+        ctx.globalAlpha = (player.invuln > 0 && Math.floor(frame / 5) % 2 === 0) ? 0.3 : 1.0;
+        ctx.fillStyle = "var(--blue)"; ctx.beginPath(); ctx.arc(player.x, player.y, player.r, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1.0; 
+
+        requestAnimationFrame(update);
+    }
+
+    function loseGame() {
+        gameActive = false;
+        document.getElementById('death-screen').style.display = 'flex';
+        document.getElementById('survival-timer').innerText = ((Date.now() - startTime)/1000).toFixed(2);
+        document.body.style.cursor = 'default';
+        const remarks = ["Good effort. But Chuck Norris still won.", "You dodged well, but eventually, you have to blink.", "Almost had him. Time to boot it up again."];
+        document.getElementById('chuck-remark').innerText = remarks[Math.floor(Math.random()*remarks.length)];
+        speakSingleLine("System failure. Chuck Norris wins.");
+    }
+
+    function winGame() {
+        gameActive = false;
+        document.getElementById('death-screen').style.display = 'flex';
+        document.getElementById('end-title').innerText = "LEGEND DEFEATED";
+        document.getElementById('end-title').style.color = "var(--gold)";
+        document.getElementById('survival-timer').innerText = ((Date.now() - startTime)/1000).toFixed(2);
+        document.body.style.cursor = 'default';
+        document.getElementById('chuck-remark').innerText = "Incredible. You actually did it. You beat the meme.";
+        document.getElementById('chuck-remark').style.color = "var(--green)";
+        speakSingleLine("Legend defeated. You win.");
+    }
+</script>
+</body>
+</html>

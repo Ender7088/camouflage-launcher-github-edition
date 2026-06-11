@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MemeTerminal | Battle Royale Edition</title>
+    <style>
+        :root {
+            --bg: #0a0e14; --panel: #141b24; --text: #e1e7ef;
+            --green: #00ff88; --red: #ff3366; --blue: #3d94ff; --gold: #f4c430; --purple: #b052ff; --orange: #ff6a00;
+            --border: #232d39;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; overflow: hidden; }
+        
+        #login-screen { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--bg); z-index: 1000; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+        .login-box { background: var(--panel); padding: 40px; border: 2px solid var(--red); border-radius: 12px; text-align: center; }
+        
+        #game-screen { display: grid; grid-template-columns: 320px 1fr 320px; gap: 1px; background: var(--border); height: 100vh; visibility: hidden; }
+        .panel { background: var(--panel); padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+        
+        .ticker-item { padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; justify-content: space-between; font-size: 13px; }
+        .ticker-item:hover { background: #1c2531; }
+        .ticker-item.active { background: #1c2531; border-left: 4px solid var(--red); }
+        
+        .terminal { background: #000; border: 1px solid var(--border); padding: 12px; height: 200px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; border-radius: 4px; line-height: 1.6; }
+        .video-engine { width: 100%; height: 320px; background: #000; border-radius: 8px; border: 1px solid var(--red); margin-top: 10px; overflow: hidden; }
+        
+        button { border: none; padding: 12px; border-radius: 4px; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.2s; }
+        button:active { transform: scale(0.95); }
+        .btn-harvest { background: var(--red); color: white; width: 100%; font-size: 18px; margin-top: 15px; }
+        input { background: #000; color: white; border: 1px solid var(--border); padding: 10px; border-radius: 4px; outline: none; }
+
+        /* Animation for new messages */
+        .msg-entry { animation: fadeIn 0.5s ease-out; margin-bottom: 10px; border-left: 2px solid; padding-left: 8px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <div class="login-box">
+        <h1 style="color: var(--red);">MEME TERMINAL: BATTLE ROYALE</h1>
+        <input type="text" id="user-input" placeholder="ENTER CALLSIGN..." style="width: 250px; margin-bottom: 20px; text-align: center;">
+        <br>
+        <button onclick="startGame()" style="background: var(--red); color: white; width: 270px;">ENGAGE SERVERS</button>
+    </div>
+</div>
+
+<div id="game-screen">
+    <div class="panel">
+        <h3 style="font-size: 10px; color: var(--red); letter-spacing: 2px;">CONNECTION NODES</h3>
+        <div id="ticker-list">
+            <div class="ticker-item active" onclick="switchNode('KRISPY')"><b>KRISPY_FLIGHTS</b> <span>ATC</span></div>
+            <div class="ticker-item" onclick="switchNode('CHUCK')"><b>CHUCK_NORRIS</b> <span>GOD_MODE</span></div>
+            <div class="ticker-item" onclick="switchNode('DAD')"><b>BATTLE_ROYALE</b> <span>CRINGE</span></div>
+        </div>
+    </div>
+
+    <div class="panel" style="border-left: 1px solid var(--border); border-right: 1px solid var(--border);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div><h2 id="disp-name" style="margin:0">BATTLE ROYALE JOKES</h2><small id="disp-id" style="color: var(--red);">STREAM_ACTIVE</small></div>
+            <div style="text-align: right;"><h1 id="disp-points" style="margin:0; font-size: 40px; color: var(--green);">0</h1><small>JOKE_XP</small></div>
+        </div>
+        
+        <div class="video-engine">
+            <iframe id="main-frame" width="100%" height="100%" src="" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        </div>
+
+        <button class="btn-harvest" onclick="harvest()">LOG CURRENT JOKE (+XP)</button>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 20px;">
+            <div class="terminal"><b style="color:var(--blue)">[ATC_CHAT]</b><div id="krispy-box"></div></div>
+            <div class="terminal"><b style="color:var(--orange)">[THE_FACTS]</b><div id="chuck-box"></div></div>
+            <div class="terminal"><b style="color:var(--red)">[BR_JOKES]</b><div id="dad-box"></div></div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div style="background: #000; padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+            <small style="color: var(--red);">OPERATOR: <span id="player-id">---</span></small>
+            <div style="color: var(--green); font-size: 24px; font-weight: bold; margin: 5px 0;" id="rank-display">FRESH MEAT</div>
+            <small style="color: #444;">DATA SYNC: STABLE</small>
+        </div>
+        <h3 style="font-size: 10px; color: #666; margin-top: 25px;">HARVESTED LOGS</h3>
+        <div id="log-list" style="font-size: 11px; color: #888;"></div>
+    </div>
+</div>
+
+<script>
+    let user = "Pilot";
+    let xp = 0;
+    let currentNode = "KRISPY";
+
+    const content = {
+        KRISPY: {
+            name: "KrispyFlights Live",
+            url: "https://www.youtube.com/embed?listType=search&list=KrispyFlights+live+airport+planes",
+            msgs: ["Southwest 402, taxi to 24R.", "Look at that butter landing!", "Chat: 'Where is the 747?'", "Heavy turbulence reported.", "Krispy: 'Clear for takeoff!'"],
+            color: 'var(--blue)'
+        },
+        CHUCK: {
+            name: "Chuck Norris Facts",
+            url: "https://www.youtube.com/embed?listType=search&list=Chuck+Norris+Jokes+Best+of",
+            msgs: ["Chuck Norris can delete the Recycle Bin.", "Chuck Norris doesn't wear a watch. He decides what time it is.", "The dark is afraid of Chuck Norris.", "Chuck Norris can hear sign language."],
+            color: 'var(--orange)'
+        },
+        DAD: {
+            name: "Dad Joke Battle Royale",
+            url: "https://www.youtube.com/embed?listType=search&list=Dad+Joke+Battle+Royale+Worst+Jokes",
+            msgs: ["I'm reading a book on anti-gravity. It's impossible to put down!", "Did you hear about the guy who invented the Lifesaver? They say he made a mint.", "I used to hate facial hair, but then it grew on me.", "What's the best thing about Switzerland? I don't know, but the flag is a big plus."],
+            color: 'var(--red)'
+        }
+    };
+
+    function updateRadio(id, msgs, color) {
+        const box = document.getElementById(id);
+        const msg = msgs[Math.floor(Math.random() * msgs.length)];
+        const entry = document.createElement('div');
+        entry.className = "msg-entry";
+        entry.style.color = color;
+        entry.style.borderColor = color;
+        entry.innerText = "> " + msg;
+        
+        box.prepend(entry);
+        if (box.children.length > 5) box.lastChild.remove();
+    }
+
+    function switchNode(node) {
+        currentNode = node;
+        const config = content[node];
+        document.getElementById('disp-name').innerText = config.name;
+        document.getElementById('main-frame').src = config.url;
+        
+        document.querySelectorAll('.ticker-item').forEach(el => el.classList.remove('active'));
+        // Find the clicked element or the one matching the node
+        const items = document.querySelectorAll('.ticker-item');
+        if(node === 'KRISPY') items[0].classList.add('active');
+        if(node === 'CHUCK') items[1].classList.add('active');
+        if(node === 'DAD') items[2].classList.add('active');
+    }
+
+    function harvest() {
+        xp += 25;
+        document.getElementById('disp-points').innerText = xp;
+        
+        const log = document.getElementById('log-list');
+        const entry = document.createElement('div');
+        entry.style.marginBottom = "5px";
+        entry.innerText = `[SECURE] Data packet saved from ${currentNode}`;
+        log.prepend(entry);
+
+        if(xp > 200) document.getElementById('rank-display').innerText = "VETERAN JOKER";
+        if(xp > 1000) document.getElementById('rank-display').innerText = "BR CHAMPION";
+    }
+
+    function startGame() {
+        const input = document.getElementById('user-input').value.trim();
+        if (input) user = input;
+
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('game-screen').style.visibility = 'visible';
+        document.getElementById('player-id').innerText = user;
+
+        switchNode('DAD'); // Start on the Battle Royale node
+
+        // Slowed down intervals (8-12 seconds) so you can read them
+        setInterval(() => updateRadio('krispy-box', content.KRISPY.msgs, content.KRISPY.color), 9000);
+        setInterval(() => updateRadio('chuck-box', content.CHUCK.msgs, content.CHUCK.color), 12000);
+        setInterval(() => updateRadio('dad-box', content.DAD.msgs, content.DAD.color), 10000);
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenith Phase 2: Expanded Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #020617;
+            color: #f8fafc;
+            overflow-x: hidden;
+            margin: 0;
+            user-select: none;
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(51, 65, 85, 0.4);
+            border-radius: 32px;
+        }
+
+        .sector-btn {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sector-btn:hover {
+            transform: translateY(-4px);
+            background: rgba(99, 102, 241, 0.1);
+            border-color: #6366f1;
+        }
+
+        .highlight-text {
+            background: linear-gradient(90deg, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        @keyframes pulse-gold {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4); }
+            50% { box-shadow: 0 0 30px 10px rgba(234, 179, 8, 0.2); }
+        }
+
+        .zenith-god-mode {
+            animation: pulse-gold 2s infinite;
+            border-color: #eab308 !important;
+        }
+
+        .config-pill {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 6px 14px;
+            border-radius: 99px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .config-pill.active {
+            background: #6366f1;
+            border-color: #818cf8;
+            color: white;
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+        }
+        
+        .hardcore-glow {
+            box-shadow: 0 0 15px rgba(244, 63, 94, 0.3);
+            border-color: rgba(244, 63, 94, 0.5) !important;
+        }
+
+        #game-canvas button {
+            transition: transform 0.1s;
+        }
+        #game-canvas button:active {
+            transform: scale(0.9);
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 sm:p-6 text-slate-200">
+
+    <!-- Menu Screen -->
+    <div id="screen-menu" class="max-w-5xl w-full py-10">
+        <div class="text-center mb-12">
+            <h1 class="text-4xl sm:text-6xl font-black tracking-tighter italic uppercase highlight-text">Zenith Phase 2</h1>
+            <p class="text-slate-500 text-xs font-bold tracking-[0.4em] mt-2">Hardware Synchronized Intelligence</p>
+        </div>
+
+        <!-- Configuration Panel -->
+        <div class="glass-card p-6 mb-8 space-y-6">
+            <div>
+                <label class="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-3 text-center">Input Method</label>
+                <div class="flex flex-wrap justify-center gap-2">
+                    <span id="input-Mouse" onclick="setConfig('input', 'Mouse')" class="config-pill active">Standard Mouse</span>
+                    <span id="input-AdvancedMouse" onclick="setConfig('input', 'AdvancedMouse')" class="config-pill">Advanced Mouse</span>
+                    <span id="input-Touchpad" onclick="setConfig('input', 'Touchpad')" class="config-pill">Touchpad</span>
+                    <span id="input-Touchscreen" onclick="setConfig('input', 'Touchscreen')" class="config-pill">Touchscreen</span>
+                </div>
+            </div>
+            
+            <div>
+                <label class="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-3 text-center">Device Chassis</label>
+                <div class="flex flex-wrap justify-center gap-2">
+                    <span id="device-Chromebook" onclick="setConfig('device', 'Chromebook')" class="config-pill active">Chromebook</span>
+                    <span id="device-Dell" onclick="setConfig('device', 'Dell')" class="config-pill">Dell Computer</span>
+                    <span id="device-iMac" onclick="setConfig('device', 'iMac')" class="config-pill">iMac</span>
+                    <span id="device-Surface" onclick="setConfig('device', 'Surface')" class="config-pill">MS Surface</span>
+                    <span id="device-Alienware" onclick="setConfig('device', 'Alienware')" class="config-pill">Alienware</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <button onclick="promptDifficulty('matrix')" class="sector-btn glass-card p-4 text-left border-indigo-500/20">
+                <div class="text-xs font-black text-indigo-400 mb-1">01</div>
+                <h3 class="font-bold">Neural Matrix</h3>
+            </button>
+            <button onclick="promptDifficulty('luminance')" class="sector-btn glass-card p-4 text-left border-emerald-500/20">
+                <div class="text-xs font-black text-emerald-400 mb-1">02</div>
+                <h3 class="font-bold">Luma Search</h3>
+            </button>
+            <button onclick="promptDifficulty('path')" class="sector-btn glass-card p-4 text-left border-rose-500/20">
+                <div class="text-xs font-black text-rose-400 mb-1">03</div>
+                <h3 class="font-bold">Flow Logic</h3>
+            </button>
+            <button onclick="promptDifficulty('interference')" class="sector-btn glass-card p-4 text-left border-amber-500/20">
+                <div class="text-xs font-black text-amber-400 mb-1">04</div>
+                <h3 class="font-bold">Input Filter</h3>
+            </button>
+            <button onclick="promptDifficulty('struct')" class="sector-btn glass-card p-4 text-left border-cyan-500/20">
+                <div class="text-xs font-black text-cyan-400 mb-1">05</div>
+                <h3 class="font-bold">Architecture</h3>
+            </button>
+            <button onclick="promptDifficulty('feedback')" class="sector-btn glass-card p-4 text-left border-violet-500/20">
+                <div class="text-xs font-black text-violet-400 mb-1">06</div>
+                <h3 class="font-bold">Neural Feedback</h3>
+            </button>
+            <button onclick="promptDifficulty('velocity')" class="sector-btn glass-card p-4 text-left border-orange-500/20">
+                <div class="text-xs font-black text-orange-400 mb-1">07</div>
+                <h3 class="font-bold">Velocity Vector</h3>
+            </button>
+            <button onclick="promptDifficulty('binary')" class="sector-btn glass-card p-4 text-left border-lime-500/20">
+                <div class="text-xs font-black text-lime-400 mb-1">08</div>
+                <h3 class="font-bold">Binary Shift</h3>
+            </button>
+            <button onclick="promptDifficulty('chroma')" class="sector-btn glass-card p-4 text-left border-fuchsia-500/20">
+                <div class="text-xs font-black text-fuchsia-400 mb-1">09</div>
+                <h3 class="font-bold">Chroma Match</h3>
+            </button>
+            <button onclick="promptDifficulty('hub')" class="sector-btn glass-card p-4 text-left border-sky-500/20">
+                <div class="text-xs font-black text-sky-400 mb-1">10</div>
+                <h3 class="font-bold">Sequence Hub</h3>
+            </button>
+        </div>
+
+        <button onclick="toggleScoreboard()" class="w-full py-4 glass-card border-slate-700 hover:border-slate-500 text-xs font-bold tracking-[0.5em] uppercase transition-all">
+            View Session Scoreboard
+        </button>
+    </div>
+
+    <!-- Difficulty Modal -->
+    <div id="screen-difficulty" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 z-[120]">
+        <div class="max-w-md w-full glass-card p-8 text-center space-y-6">
+            <h2 class="text-2xl font-black italic uppercase text-indigo-400 tracking-tighter">Select Severity</h2>
+            <div class="grid grid-cols-1 gap-4">
+                <button onclick="confirmStart('Standard')" class="p-4 bg-slate-800 rounded-2xl hover:bg-slate-700 transition-all font-bold">STANDARD</button>
+                <button onclick="confirmStart('Zenith')" class="p-4 bg-indigo-900/40 border border-indigo-500/50 rounded-2xl hover:bg-indigo-800 transition-all font-bold">ZENITH (3s Limit)</button>
+                <button onclick="confirmStart('Hardcore')" class="p-4 bg-rose-950/40 border border-rose-500/50 rounded-2xl hover:bg-rose-900 transition-all font-black italic text-rose-400">HARDCORE (Insta-Fail)</button>
+            </div>
+            <button onclick="closeDifficulty()" class="text-slate-500 text-xs font-bold uppercase mt-4">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Test Area -->
+    <div id="screen-test" class="hidden fixed inset-0 bg-slate-950 flex flex-col items-center justify-center p-4 z-50">
+        <div id="test-container" class="max-w-lg w-full glass-card p-10 flex flex-col items-center relative">
+            <div class="flex justify-between w-full mb-4 items-center">
+                 <div class="pr-4">
+                    <h2 id="test-title" class="text-2xl font-black tracking-widest uppercase italic truncate max-w-[200px]">TITLE</h2>
+                    <div id="difficulty-badge" class="text-[10px] font-black bg-indigo-500 text-white px-2 py-0.5 rounded-full inline-block mt-1 uppercase">LEVEL</div>
+                 </div>
+                 <div id="live-timer" class="font-mono text-lg font-bold text-indigo-400">0.00s</div>
+            </div>
+            <p id="test-desc" class="text-slate-400 text-sm mb-8 text-center min-h-[40px]">Instructions...</p>
+            <div id="game-canvas" class="w-full min-h-[340px] flex flex-col items-center justify-center bg-slate-900/50 rounded-3xl p-6 overflow-hidden relative"></div>
+            <button onclick="backToMenu()" class="mt-8 text-xs font-bold text-slate-600 uppercase hover:text-white transition-colors">Abort Test</button>
+        </div>
+    </div>
+
+    <!-- Results Modal -->
+    <div id="screen-results" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 z-[100]">
+        <div id="results-container" class="max-w-md w-full glass-card p-8 text-center space-y-6 border-indigo-500/50">
+            <h2 id="result-status" class="text-xs font-black tracking-[0.3em] text-indigo-400 uppercase">Analysis Complete</h2>
+            <div class="space-y-1">
+                <div id="result-time" class="text-6xl font-black tracking-tighter">1.50s</div>
+                <div class="text-slate-500 text-xs font-bold uppercase tracking-widest" id="result-device-label">Chromebook Optimized</div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-slate-900/50 rounded-2xl p-4 border border-slate-800">
+                    <div id="result-percentile" class="text-2xl font-black text-indigo-400">99.99%</div>
+                    <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Percentile</div>
+                </div>
+                <div id="iq-box" class="bg-slate-900/50 rounded-2xl p-4 border border-slate-800">
+                    <div id="result-iq" class="text-2xl font-black text-emerald-400">160+</div>
+                    <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">IQ Est.</div>
+                </div>
+            </div>
+            <button onclick="backToMenu()" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-black italic uppercase tracking-widest transition-all">Synchronize Next</button>
+        </div>
+    </div>
+
+    <!-- Scoreboard Modal -->
+    <div id="screen-scoreboard" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-2xl flex flex-col items-center justify-center p-6 z-[150]">
+        <div class="max-w-3xl w-full glass-card p-8 flex flex-col h-[85vh]">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-3xl font-black italic uppercase highlight-text">Session Scoreboard</h2>
+                    <p id="total-tests-taken" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">0 TESTS SYNCHRONIZED</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="saveScoresToFile()" class="px-4 py-2 bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-bold uppercase hover:bg-emerald-600/40 transition-all">Export .TXT</button>
+                    <button onclick="toggleScoreboard()" class="px-4 py-2 bg-slate-800 text-slate-400 rounded-xl text-[10px] font-bold uppercase">Close</button>
+                </div>
+            </div>
+            
+            <div class="overflow-y-auto flex-grow space-y-4 pr-2" id="scoreboard-list">
+                <!-- Scores injected here -->
+            </div>
+
+            <!-- Weighted Averages Section -->
+            <div class="mt-6 pt-6 border-t border-slate-800 grid grid-cols-4 gap-4 text-center">
+                <div class="p-2 bg-slate-900/40 rounded-2xl border border-slate-800/50">
+                    <div id="avg-time" class="text-xl font-black">0.000s</div>
+                    <div class="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Global Speed</div>
+                </div>
+                <div class="p-2 bg-slate-900/40 rounded-2xl border border-slate-800/50">
+                    <div id="avg-perc" class="text-xl font-black text-indigo-400">0.00%</div>
+                    <div class="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Global Perc.</div>
+                </div>
+                <div class="p-2 bg-slate-900/40 rounded-2xl border border-slate-800/50">
+                    <div id="avg-iq" class="text-xl font-black text-emerald-400">0</div>
+                    <div class="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Global IQ</div>
+                </div>
+                <div class="p-2 bg-slate-900/40 rounded-2xl border border-slate-800/50">
+                    <div id="stress-tolerance" class="text-xl font-black text-rose-400">--</div>
+                    <div class="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Hardcore Sync</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const menu = document.getElementById('screen-menu');
+        const diffScreen = document.getElementById('screen-difficulty');
+        const testScreen = document.getElementById('screen-test');
+        const resultsScreen = document.getElementById('screen-results');
+        const scoreboardScreen = document.getElementById('screen-scoreboard');
+        const canvas = document.getElementById('game-canvas');
+        const timerDisplay = document.getElementById('live-timer');
+        const testContainer = document.getElementById('test-container');
+        
+        let startT = 0, timerInterval, currentSector = '', currentDifficulty = 'Standard';
+        let config = { input: 'Mouse', device: 'Chromebook' };
+        let scores = [];
+
+        const benchmarks = {
+            matrix: { name: "Neural Matrix", avg: 2.2, zenith: 0.7, limit: 3.0 },
+            luminance: { name: "Luma Search", avg: 1.3, zenith: 0.45, limit: 2.0 }, 
+            path: { name: "Flow Logic", avg: 5.5, zenith: 2.8, limit: 10.0 },
+            interference: { name: "Input Filter", avg: 1.4, zenith: 0.65, limit: 2.5 },
+            struct: { name: "Architecture", avg: 2.2, zenith: 0.7, limit: 3.0 },
+            feedback: { name: "Neural Feedback", avg: 4.0, zenith: 2.0, limit: 10.0 },
+            velocity: { name: "Velocity Vector", avg: 0.4, zenith: 0.22, limit: 1.5 },
+            binary: { name: "Binary Shift", avg: 1.8, zenith: 0.6, limit: 3.0 },
+            chroma: { name: "Chroma Match", avg: 1.5, zenith: 0.5, limit: 2.5 },
+            hub: { name: "Sequence Hub", avg: 6.5, zenith: 3.5, limit: 15.0 }
+        };
+
+        function setConfig(type, value) {
+            config[type] = value;
+            const container = type === 'input' ? 'input-' : 'device-';
+            document.querySelectorAll(`[id^="${container}"]`).forEach(b => b.classList.remove('active'));
+            document.getElementById(container + value).classList.add('active');
+        }
+
+        function promptDifficulty(type) {
+            currentSector = type;
+            menu.classList.add('hidden');
+            diffScreen.classList.remove('hidden');
+        }
+
+        function closeDifficulty() {
+            diffScreen.classList.add('hidden');
+            menu.classList.remove('hidden');
+        }
+
+        function confirmStart(diff) {
+            currentDifficulty = diff;
+            diffScreen.classList.add('hidden');
+            startTest(currentSector);
+        }
+
+        function startTest(type) {
+            resultsScreen.classList.add('hidden');
+            testScreen.classList.remove('hidden');
+            document.getElementById('results-container').classList.remove('zenith-god-mode');
+            document.getElementById('test-title').innerText = benchmarks[type].name;
+            document.getElementById('difficulty-badge').innerText = currentDifficulty;
+            
+            if (currentDifficulty === 'Hardcore') {
+                testContainer.classList.add('hardcore-glow');
+            } else {
+                testContainer.classList.remove('hardcore-glow');
+            }
+
+            canvas.innerHTML = '';
+            const limit = benchmarks[currentSector].limit;
+            startT = Date.now();
+            timerInterval = setInterval(() => {
+                const elapsed = (Date.now() - startT) / 1000;
+                timerDisplay.innerText = elapsed.toFixed(2) + 's';
+                if (elapsed >= limit && currentDifficulty !== 'Standard') handleFailure();
+            }, 10);
+
+            switch(type) {
+                case 'matrix': runMatrix(); break;
+                case 'luminance': runLuma(); break;
+                case 'path': runPath(); break;
+                case 'interference': runInterference(); break;
+                case 'struct': runStruct(); break;
+                case 'feedback': runFeedback(); break;
+                case 'velocity': runVelocity(); break;
+                case 'binary': runBinary(); break;
+                case 'chroma': runChroma(); break;
+                case 'hub': runHub(); break;
+            }
+        }
+
+        function handleFailure() {
+            clearInterval(timerInterval);
+            const msg = document.createElement('div');
+            msg.className = "fixed inset-0 bg-rose-950/90 backdrop-blur-xl z-[200] flex items-center justify-center p-8 text-center";
+            msg.innerHTML = `
+                <div class="glass-card p-10 border-rose-500">
+                    <h2 class="text-4xl font-black text-rose-500 mb-4 uppercase">System Desync</h2>
+                    <p class="text-slate-300 font-bold mb-8">Limit exceeded or target lost. Neural link broken.</p>
+                    <button onclick="this.parentElement.parentElement.remove(); backToMenu();" class="px-8 py-3 bg-rose-600 rounded-xl font-bold uppercase tracking-widest">Re-initialize</button>
+                </div>
+            `;
+            document.body.appendChild(msg);
+        }
+
+        function showSuccess() {
+            clearInterval(timerInterval);
+            const time = (Date.now() - startT) / 1000;
+            const stats = calculateRankings(time);
+            
+            scores.push({
+                sector: benchmarks[currentSector].name,
+                difficulty: currentDifficulty,
+                time: time,
+                percentile: parseFloat(stats.percentile),
+                iq: parseInt(stats.iq)
+            });
+
+            document.getElementById('result-time').innerText = time.toFixed(3) + 's';
+            document.getElementById('result-percentile').innerText = stats.percentile + "%";
+            document.getElementById('result-iq').innerText = stats.iq;
+            document.getElementById('result-device-label').innerText = `${config.device} + ${config.input}`;
+            
+            if (time < benchmarks[currentSector].zenith) {
+                document.getElementById('results-container').classList.add('zenith-god-mode');
+                document.getElementById('result-status').innerText = "NEURAL ANOMALY DETECTED";
+            } else {
+                document.getElementById('result-status').innerText = "ANALYSIS COMPLETE";
+            }
+
+            testScreen.classList.add('hidden');
+            resultsScreen.classList.remove('hidden');
+        }
+
+        function calculateRankings(time) {
+            let b = {...benchmarks[currentSector]};
+            if (config.input === 'Touchpad') { b.avg += 0.25; b.zenith += 0.20; }
+            if (config.input === 'Touchscreen') { b.avg -= 0.10; b.zenith -= 0.10; }
+            if (config.input === 'AdvancedMouse') { b.avg -= 0.15; b.zenith -= 0.15; }
+            
+            let percentile = 50;
+            if (time <= b.zenith) {
+                percentile = 99.9 + (1 - (time / b.zenith)) * 0.099;
+            } else if (time >= b.avg) {
+                percentile = 50 - ((time - b.avg) / b.avg) * 40;
+            } else {
+                percentile = 50 + ((b.avg - time) / (b.avg - b.zenith)) * 49.9;
+            }
+            let iq = 100 + ((percentile - 50) / 49.9) * 60;
+            if (percentile >= 99.9) iq = 160 + (99.99 - percentile) * 100;
+            
+            return { 
+                percentile: Math.min(99.99, Math.max(0.01, percentile)).toFixed(2), 
+                iq: Math.round(iq) + (iq >= 160 ? "+" : "") 
+            };
+        }
+
+        function toggleScoreboard() {
+            if (scoreboardScreen.classList.contains('hidden')) {
+                updateScoreboardUI();
+                scoreboardScreen.classList.remove('hidden');
+            } else {
+                scoreboardScreen.classList.add('hidden');
+            }
+        }
+
+        function updateScoreboardUI() {
+            const list = document.getElementById('scoreboard-list');
+            list.innerHTML = '';
+            document.getElementById('total-tests-taken').innerText = `${scores.length} TESTS SYNCHRONIZED`;
+            
+            if (scores.length === 0) {
+                list.innerHTML = '<div class="text-center py-10 text-slate-600 font-bold uppercase tracking-widest">No data synchronized.</div>';
+                return;
+            }
+
+            let totalT = 0, totalP = 0, totalIQ = 0;
+            let hardcoreCount = 0;
+
+            [...scores].reverse().forEach(s => {
+                totalT += s.time;
+                totalP += s.percentile;
+                totalIQ += s.iq;
+                if(s.difficulty === 'Hardcore') hardcoreCount++;
+
+                const card = document.createElement('div');
+                card.className = "glass-card p-4 flex items-center justify-between border-slate-800 transition-all hover:border-indigo-500/30";
+                card.innerHTML = `
+                    <div>
+                        <div class="text-[10px] font-black uppercase text-indigo-400">${s.sector} <span class="text-slate-500">• ${s.difficulty}</span></div>
+                        <div class="text-lg font-bold">${s.time.toFixed(3)}s</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-[10px] font-black uppercase text-slate-500">Perc. ${s.percentile.toFixed(2)}%</div>
+                        <div class="text-lg font-bold text-emerald-400">IQ ${s.iq}</div>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+
+            document.getElementById('avg-time').innerText = (totalT / scores.length).toFixed(3) + "s";
+            document.getElementById('avg-perc').innerText = (totalP / scores.length).toFixed(2) + "%";
+            document.getElementById('avg-iq').innerText = Math.round(totalIQ / scores.length);
+            
+            const stressRatio = (hardcoreCount / scores.length) * 100;
+            document.getElementById('stress-tolerance').innerText = stressRatio.toFixed(0) + "%";
+        }
+
+        function saveScoresToFile() {
+            if (scores.length === 0) return;
+            let totalT = 0, totalP = 0, totalIQ = 0;
+            let text = `ZENITH PHASE 2: NEURAL PROFILE\n`;
+            text += `==================================\n`;
+            text += `Device: ${config.device} | Input: ${config.input}\nSync Date: ${new Date().toLocaleString()}\n\n`;
+            text += `TRIAL LOGS (${scores.length} Tests):\n`;
+            scores.forEach((s, i) => {
+                totalT += s.time; totalP += s.percentile; totalIQ += s.iq;
+                text += `[${(i+1).toString().padStart(2, '0')}] ${s.sector.padEnd(15)} | ${s.difficulty.padEnd(8)} | Speed: ${s.time.toFixed(3)}s | Rank: ${s.percentile.toFixed(2)}% | IQ: ${s.iq}\n`;
+            });
+            text += `\nGLOBAL METRICS:\n`;
+            text += `Average Speed: ${(totalT / scores.length).toFixed(3)}s\n`;
+            text += `Average Percentile: ${(totalP / scores.length).toFixed(2)}%\n`;
+            text += `Average IQ: ${Math.round(totalIQ / scores.length)}\n`;
+            text += `==================================\n`;
+            
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Zenith_Neural_Profile.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function backToMenu() {
+            clearInterval(timerInterval);
+            testScreen.classList.add('hidden');
+            resultsScreen.classList.add('hidden');
+            menu.classList.remove('hidden');
+        }
+
+        // --- SECTORS ---
+
+        function runLuma() {
+            const isH = currentDifficulty === 'Hardcore';
+            // Increase grid size for Hardcore: 81 tiles (9x9) vs 36 tiles (6x6)
+            const size = isH ? 81 : 36;
+            const cols = isH ? 9 : 6;
+            const grid = canvas.appendChild(document.createElement('div'));
+            grid.className = `grid grid-cols-${cols} gap-1`;
+            
+            const target = Math.floor(Math.random()*size);
+            const hue = Math.floor(Math.random()*360);
+            
+            // User requested exactly 5% light difference for Hardcore
+            const baseL = 50;
+            const diff = isH ? 5 : 15; 
+            
+            for(let i=0; i<size; i++) {
+                const d = grid.appendChild(document.createElement('div'));
+                d.className = isH ? "w-7 h-7 rounded-md" : "w-10 h-10 rounded-lg";
+                d.className += " cursor-pointer transition-transform active:scale-90";
+                
+                // Toggle lighter or darker anomaly for Hardcore
+                const isLighter = Math.random() > 0.5;
+                const finalL = i === target ? (isLighter ? baseL + diff : baseL - diff) : baseL;
+                
+                d.style.backgroundColor = `hsl(${hue}, 60%, ${finalL}%)`;
+                d.onclick = () => i === target ? showSuccess() : handleFailure();
+            }
+            document.getElementById('test-desc').innerText = isH ? "Identify the 5% intensity anomaly." : "Locate the contrasting tile.";
+        }
+
+        function runVelocity() {
+            document.getElementById('test-desc').innerText = "Intercept the moving target.";
+            const target = canvas.appendChild(document.createElement('button'));
+            target.className = "absolute w-12 h-12 bg-orange-500 rounded-full shadow-[0_0_20px_orange] transition-all duration-300";
+            let x = Math.random() * 80 + 10, y = Math.random() * 80 + 10;
+            target.style.left = x + "%"; target.style.top = y + "%";
+            target.onclick = () => { clearInterval(move); showSuccess(); };
+            const move = setInterval(() => {
+                x = Math.random() * 80 + 10; y = Math.random() * 80 + 10;
+                target.style.left = x + "%"; target.style.top = y + "%";
+            }, 600);
+            const originalBack = backToMenu;
+            window.backToMenu = () => { clearInterval(move); originalBack(); };
+        }
+
+        function runBinary() {
+            document.getElementById('test-desc').innerText = "Sum the active bits (1, 2, 4, 8).";
+            const bits = [8, 4, 2, 1];
+            const active = bits.filter(() => Math.random() > 0.5);
+            if (active.length === 0) active.push(1);
+            const sum = active.reduce((a, b) => a + b, 0);
+            const row = canvas.appendChild(document.createElement('div'));
+            row.className = "flex gap-4 mb-10";
+            bits.forEach(b => {
+                const bit = row.appendChild(document.createElement('div'));
+                bit.className = `w-12 h-16 rounded-lg flex items-center justify-center font-black ${active.includes(b) ? 'bg-lime-500 text-slate-900' : 'bg-slate-800 text-slate-600'}`;
+                bit.innerText = active.includes(b) ? "1" : "0";
+            });
+            const input = canvas.appendChild(document.createElement('div'));
+            input.className = "grid grid-cols-4 gap-2";
+            for(let i=0; i<16; i++) {
+                const btn = input.appendChild(document.createElement('button'));
+                btn.className = "p-3 bg-slate-800 rounded-xl font-bold hover:bg-slate-700";
+                btn.innerText = i;
+                btn.onclick = () => i === sum ? showSuccess() : handleFailure();
+            }
+        }
+
+        function runChroma() {
+            document.getElementById('test-desc').innerText = "Identify the exact matching intensity.";
+            const targetVal = 30 + Math.floor(Math.random() * 50);
+            const hue = Math.floor(Math.random() * 360);
+            const preview = canvas.appendChild(document.createElement('div'));
+            preview.className = "w-24 h-24 rounded-full mb-10 shadow-xl border-4 border-slate-700";
+            preview.style.backgroundColor = `hsl(${hue}, 70%, ${targetVal}%)`;
+            const row = canvas.appendChild(document.createElement('div'));
+            row.className = "flex gap-2";
+            const options = [targetVal, targetVal-10, targetVal+10, targetVal-20].sort(()=>Math.random()-0.5);
+            options.forEach(o => {
+                const b = row.appendChild(document.createElement('button'));
+                b.className = "w-14 h-14 rounded-xl border-2 border-transparent hover:border-white transition-all";
+                b.style.backgroundColor = `hsl(${hue}, 70%, ${o}%)`;
+                b.onclick = () => o === targetVal ? showSuccess() : handleFailure();
+            });
+        }
+
+        function runHub() {
+            document.getElementById('test-desc').innerText = "Recall the 10-digit sequence.";
+            let seq = "";
+            for(let i=0; i<10; i++) seq += Math.floor(Math.random()*10);
+            const display = canvas.appendChild(document.createElement('div'));
+            display.className = "text-4xl font-black tracking-[0.2em] text-sky-400 mb-8 font-mono";
+            display.innerText = seq;
+            setTimeout(() => {
+                display.innerText = "ENTER SEQUENCE";
+                display.className = "text-xs font-bold text-slate-500 mb-4 tracking-[0.5em]";
+                const input = canvas.appendChild(document.createElement('input'));
+                input.type = "text";
+                input.className = "bg-slate-800 border-none rounded-2xl p-4 text-center text-3xl font-black w-full outline-none text-white font-mono tracking-widest";
+                input.focus();
+                input.oninput = () => {
+                    if (input.value === seq) showSuccess();
+                    else if (input.value.length >= 10 && input.value !== seq) handleFailure();
+                }
+            }, 1800);
+        }
+
+        function runFeedback() {
+            const colors = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#06b6d4', '#ec4899'];
+            const count = currentDifficulty === 'Hardcore' ? 6 : 4;
+            const seq = [];
+            for(let i=0; i<count; i++) seq.push(colors[Math.floor(Math.random()*colors.length)]);
+            const display = canvas.appendChild(document.createElement('div'));
+            display.className = "flex gap-2 mb-8";
+            seq.forEach((c, i) => {
+                const box = display.appendChild(document.createElement('div'));
+                box.className = "w-10 h-10 rounded-xl opacity-0 transition-opacity duration-200";
+                box.style.backgroundColor = c;
+                setTimeout(() => box.style.opacity = "1", i * 250);
+                setTimeout(() => box.style.opacity = "0", (count * 250) + 400);
+            });
+            setTimeout(() => {
+                const inputArea = canvas.appendChild(document.createElement('div'));
+                inputArea.className = "grid grid-cols-3 gap-3";
+                const userSeq = [];
+                const rev = [...seq].reverse();
+                colors.forEach(c => {
+                    const btn = inputArea.appendChild(document.createElement('button'));
+                    btn.className = "w-14 h-14 rounded-2xl border-2 border-slate-700 hover:border-white transition-all";
+                    btn.style.backgroundColor = c;
+                    btn.onclick = () => {
+                        userSeq.push(c);
+                        if(c !== rev[userSeq.length-1]) handleFailure();
+                        if(userSeq.length === count) showSuccess();
+                    };
+                });
+            }, (count * 250) + 800);
+        }
+
+        function runMatrix() {
+            const symbols = ['⬢','⬣','⬧','⬥','⬦','⬲','⬷'];
+            const len = currentDifficulty === 'Hardcore' ? 4 : 3;
+            const start = Math.floor(Math.random()*(symbols.length - len - 1));
+            let seqStr = "";
+            for(let i=0; i<len; i++) seqStr += symbols[start+i] + " ";
+            canvas.innerHTML = `<div class="text-5xl mb-10 tracking-widest font-light">${seqStr} ?</div>`;
+            const row = canvas.appendChild(document.createElement('div'));
+            row.className = "flex flex-wrap justify-center gap-3";
+            symbols.forEach(s => {
+                const b = row.appendChild(document.createElement('button'));
+                b.className = "p-4 bg-slate-800 rounded-2xl text-3xl hover:bg-slate-700 w-16 h-16 flex items-center justify-center border border-slate-700";
+                b.innerText = s;
+                b.onclick = () => s === symbols[start+len] ? showSuccess() : handleFailure();
+            });
+        }
+
+        function runPath() {
+            const grid = canvas.appendChild(document.createElement('div'));
+            const count = currentDifficulty === 'Hardcore' ? 12 : 8;
+            grid.className = "grid grid-cols-4 gap-4";
+            let cur = 1;
+            const nums = Array.from({length: count}, (_, i) => i + 1).sort(()=>Math.random()-0.5);
+            nums.forEach(n => {
+                const b = grid.appendChild(document.createElement('button'));
+                b.className = "w-14 h-14 bg-slate-800 rounded-2xl font-black text-lg border border-slate-700 hover:bg-slate-700";
+                b.innerText = n;
+                b.onclick = () => {
+                    if(n === cur) { b.classList.add('bg-emerald-600', 'border-emerald-400'); cur++; if(cur>count) showSuccess(); }
+                    else handleFailure();
+                }
+            });
+        }
+
+        function runInterference() {
+            const words = ['RED', 'BLUE', 'GREEN', 'YELLOW', 'PURPLE', 'CYAN'];
+            const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#06b6d4'];
+            const pool = currentDifficulty === 'Hardcore' ? 6 : 4;
+            const tIdx = Math.floor(Math.random()*pool);
+            const dIdx = (tIdx + 1 + Math.floor(Math.random()*(pool-1))) % pool;
+            canvas.innerHTML = `<div class="text-7xl font-black mb-10 italic uppercase" style="color:${colors[tIdx]}">${words[dIdx]}</div>`;
+            const row = canvas.appendChild(document.createElement('div'));
+            row.className = "grid grid-cols-2 gap-4";
+            for(let i=0; i<pool; i++) {
+                const b = row.appendChild(document.createElement('button'));
+                b.className = "p-4 bg-slate-800 rounded-2xl font-black uppercase text-xs tracking-widest border border-slate-700 hover:bg-slate-700";
+                b.innerText = words[i];
+                b.onclick = () => i === tIdx ? showSuccess() : handleFailure();
+            }
+        }
+
+        function runStruct() {
+            const angle = Math.floor(Math.random()*4)*90;
+            const isH = currentDifficulty === 'Hardcore';
+            const sub = isH ? Math.floor(Math.random()*4)*90 : 0;
+            const outer = canvas.appendChild(document.createElement('div'));
+            outer.className = "relative w-32 h-32 mb-12 flex items-center justify-center";
+            outer.style.transform = `rotate(${angle}deg)`;
+            outer.innerHTML = `
+                <div class="absolute inset-0 border-t-8 border-r-8 border-indigo-500 rounded-tr-3xl"></div>
+                ${isH ? `<div class="w-10 h-10 border-b-4 border-l-4 border-rose-400" style="transform:rotate(${sub}deg)"></div>` : ''}
+            `;
+            const row = canvas.appendChild(document.createElement('div'));
+            row.className = "grid grid-cols-2 gap-6";
+            [0, 90, 180, 270].forEach(a => {
+                const b = row.appendChild(document.createElement('button'));
+                b.className = "p-6 bg-slate-800 rounded-3xl hover:bg-slate-700 border border-slate-700";
+                b.innerHTML = `<div class="w-12 h-12 relative flex items-center justify-center" style="transform:rotate(${a}deg)">
+                    <div class="absolute inset-0 border-t-4 border-r-4 border-slate-400"></div>
+                    ${isH ? `<div class="w-4 h-4 border-b-2 border-l-2 border-slate-500" style="transform:rotate(${sub}deg)"></div>` : ''}
+                </div>`;
+                b.onclick = () => a === angle ? showSuccess() : handleFailure();
+            });
+        }
+    </script>
+</body>
+</html>

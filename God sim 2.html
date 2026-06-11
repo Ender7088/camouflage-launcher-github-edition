@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genesis: Survival Fixed V18</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Consolas', monospace; color: #e6edf3; display: flex; flex-direction: column; height: 100vh; }
+        #canvas-container { flex: 1; position: relative; width: 100%; cursor: move; }
+        
+        #dashboard { 
+            position: absolute; top: 10px; left: 10px; 
+            background: rgba(13, 17, 23, 0.95); padding: 15px; 
+            border-radius: 4px; border: 1px solid #30363d; 
+            width: 300px; z-index: 10; pointer-events: none;
+        }
+        
+        #medical-registry {
+            position: absolute; top: 380px; left: 10px; 
+            background: rgba(13, 17, 23, 0.95); padding: 15px; 
+            border-radius: 4px; border: 1px solid #30363d; 
+            width: 280px; z-index: 10; pointer-events: none;
+            max-height: 180px; overflow-y: hidden;
+        }
+
+        .stat-row { display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 5px; border-bottom: 1px solid #21262d; padding-bottom: 2px; }
+        .val { font-weight: bold; color: #3fb950; }
+        .res-val { color: #d2a8ff; }
+        .warn { color: #ff7b72; font-weight: bold; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+        
+        #ai-switch {
+            width: 100%; padding: 10px; margin-top: 10px;
+            background: #21262d; border: 1px solid #ff7b72;
+            color: #ff7b72; font-weight: bold; cursor: pointer;
+            pointer-events: auto; border-radius: 4px; transition: 0.2s;
+        }
+        #ai-switch.on { border-color: #3fb950; color: #3fb950; background: #161b22; box-shadow: 0 0 10px rgba(63, 185, 80, 0.2); }
+
+        #intel-bar-bg { width: 100%; height: 6px; background: #010409; border-radius: 3px; margin: 8px 0; overflow: hidden; }
+        #intel-bar-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #3fb950, #f2cc60); transition: width 0.4s; }
+
+        #terminal-zone { height: 30%; display: flex; background: #0d1117; border-top: 2px solid #3fb950; }
+        .term-half { flex: 1; display: flex; flex-direction: column; border-right: 1px solid #30363d; }
+        .term-label { background: #161b22; padding: 5px 12px; font-size: 10px; color: #8b949e; letter-spacing: 1px; border-bottom: 1px solid #30363d; }
+        .log { flex-grow: 1; padding: 12px; overflow-y: auto; font-size: 12px; line-height: 1.4; color: #c9d1d9; }
+        .input-wrap { display: flex; padding: 10px; background: #010409; border-top: 1px solid #30363d; }
+        input { flex-grow: 1; background: transparent; border: none; color: #3fb950; outline: none; font-size: 14px; }
+
+        .log-cmd { color: #3fb950; font-weight: bold; }
+        .log-ai { color: #d2a8ff; font-style: italic; }
+        .log-pray { color: #f2cc60; border-left: 2px solid #f2cc60; padding-left: 5px; margin: 4px 0; }
+    </style>
+</head>
+<body>
+
+<div id="canvas-container">
+    <div id="dashboard">
+        <div style="font-weight:bold; margin-bottom:8px; letter-spacing:1px;">GOD-AI INTERFACE V18.0</div>
+        <div class="stat-row">AI Learning: <span id="s-intel" class="val">0%</span></div>
+        <div id="intel-bar-bg"><div id="intel-bar-fill"></div></div>
+        <div class="stat-row">Population: <span id="s-pop" class="val">0</span></div>
+        <div class="stat-row">Food / Water: <span id="s-res-main" class="res-val">1000 / 1000</span></div>
+        <div class="stat-row">Wood / Stone: <span id="s-res-raw" class="res-val">0 / 0</span></div>
+        <div class="stat-row">Prayers / Dead: <span id="s-prayers" class="val">0</span> / <span id="s-dead" style="color:#8b949e">0</span></div>
+        <button id="ai-switch" onclick="toggleAI()">AI OVERSEER: OFF</button>
+        <div id="starve-warn" class="warn" style="display:none; margin-top:10px; text-align:center;">CRITICAL STARVATION</div>
+    </div>
+
+    <div id="medical-registry">
+        <div style="font-weight:bold; margin-bottom:8px; color:#ff7b72; letter-spacing:1px;">LIVING REGISTRY</div>
+        <div id="sick-list" style="font-size: 0.85em; color: #c9d1d9; line-height: 1.5;">Monitoring...</div>
+    </div>
+</div>
+
+<div id="terminal-zone">
+    <div class="term-half">
+        <div class="term-label">COMMAND CORE</div>
+        <div id="log-left" class="log"></div>
+        <div class="input-wrap"><span>$ </span><input type="text" id="cmd-left" placeholder="add farm, add pond, grant [name]..."></div>
+    </div>
+    <div class="term-half">
+        <div class="term-label">AETHER LINK</div>
+        <div id="log-right" class="log"></div>
+    </div>
+</div>
+
+<script>
+    // --- 3D ENGINE ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB);
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / (window.innerHeight * 0.7), 0.1, 3000);
+    camera.position.set(0, 400, 700);
+    
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight * 0.7);
+    document.getElementById("canvas-container").appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const sun = new THREE.DirectionalLight(0xffffff, 1);
+    sun.position.set(100, 200, 100); scene.add(sun);
+
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshStandardMaterial({ color: 0x2e4d23 }));
+    ground.rotation.x = -Math.PI / 2; scene.add(ground);
+
+    const graveMarker = new THREE.Mesh(new THREE.PlaneGeometry(150, 150), new THREE.MeshStandardMaterial({color: 0x1a1a1a}));
+    graveMarker.rotation.x = -Math.PI / 2; graveMarker.position.set(500, 0.1, -500);
+    scene.add(graveMarker);
+
+    // --- STATE ---
+    let state = { 
+        pop: 0, stone: 0, wood: 0, food: 1000, water: 1000, intel: 0, 
+        aiActive: false, dead: 0, farms: 0, ponds: 0, factories: 0, mines: 0,
+        hasSchool: false, schoolPos: null
+    };
+    let entities = { humans: [], structures: [], mines: [] };
+    const FIRST_NAMES = ["Aiden","Mia","Lucas","Harper","Ethan","Amelia","Mason","Evelyn","Logan","Abigail","Liam","Olivia","Noah","Emma","Oliver","Ava","Elijah","Sophia","James","Isabella"];
+
+    function logL(msg, cls="log-cmd") { const d = document.getElementById("log-left"); d.innerHTML += `<div class="${cls}">${msg}</div>`; d.scrollTop = d.scrollHeight; }
+    function logR(msg, cls="log-ai") { const d = document.getElementById("log-right"); d.innerHTML += `<div class="${cls}">${msg}</div>`; d.scrollTop = d.scrollHeight; }
+    
+    function toggleAI() {
+        state.aiActive = !state.aiActive;
+        const btn = document.getElementById("ai-switch");
+        btn.innerText = `AI OVERSEER: ${state.aiActive ? 'ON' : 'OFF'}`;
+        btn.classList.toggle('on', state.aiActive);
+    }
+
+    // --- SPAWNERS ---
+    function spawnHuman(type="adult", pos=null, age=20) {
+        let size = (type === "kid") ? 0.6 : 1.0;
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(2*size, 4*size, 2*size), new THREE.MeshStandardMaterial({ color: (type === "kid") ? 0xadd8e6 : 0xcd853f }));
+        const p = pos || { x: (Math.random()-0.5)*600, z: (Math.random()-0.5)*600 };
+        mesh.position.set(p.x, 2*size, p.z); scene.add(mesh);
+        
+        let genName = FIRST_NAMES[Math.floor(Math.random()*FIRST_NAMES.length)] + " " + String.fromCharCode(65+Math.floor(Math.random()*26)) + ".";
+        
+        // FIX: Added 'gracePeriod' so they don't die instantly if food is 0
+        entities.humans.push({ 
+            mesh, age, type, target: new THREE.Vector3(p.x, 2*size, p.z), 
+            name: genName, illness: null, prayer: null, gracePeriod: 10 
+        });
+        
+        state.pop = entities.humans.length;
+        // Spawning grant emergency food
+        state.food += 50; state.water += 50;
+    }
+
+    function spawnMine() {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(30, 4, 30), new THREE.MeshStandardMaterial({color: 0x111111}));
+        m.position.set((Math.random()-0.5)*800, 2, (Math.random()-0.5)*800);
+        scene.add(m); entities.mines.push(m); state.mines++;
+        logL("Mine established. Stone production boosted.");
+    }
+
+    function spawnCity() {
+        const cx = (Math.random()-0.5)*600, cz = (Math.random()-0.5)*600;
+        for(let i=0; i<6; i++) {
+            const h = 20 + Math.random()*40;
+            const b = new THREE.Mesh(new THREE.BoxGeometry(20, h, 20), new THREE.MeshStandardMaterial({color: 0x333333}));
+            b.position.set(cx + (i*30), h/2, cz + (Math.random()*40)); 
+            scene.add(b); entities.structures.push(b);
+        }
+        for(let i=0; i<5; i++) spawnHuman();
+        state.food += 500; state.water += 500; // City supply drop
+        logL("City foundation laid with emergency supplies.");
+    }
+
+    // --- INPUT ---
+    document.getElementById("cmd-left").addEventListener("keypress", (e) => {
+        if(e.key === "Enter") {
+            const input = e.target.value.toLowerCase().trim();
+            logL(`USER: ${input}`); e.target.value = "";
+            const count = parseInt(input.match(/\d+/)) || 1;
+
+            if(input.match(/add|spawn|create|make/)) {
+                if(input.includes("human") || input.includes("people")) { for(let i=0; i<count; i++) spawnHuman(); }
+                else if(input.includes("city")) spawnCity();
+                else if(input.includes("mine")) { for(let i=0; i<count; i++) spawnMine(); }
+                else if(input.includes("farm")) { state.farms += count; logL(`${count} Farms built.`); }
+                else if(input.includes("pond") || input.includes("water")) { state.ponds += count; logL(`${count} Ponds dug.`); }
+            }
+            else if(input.includes("cure all")) { entities.humans.forEach(h => h.illness = null); logL("Miracle: Disease purged."); }
+            if(state.aiActive) state.intel = Math.min(100, state.intel + 5);
+        }
+    });
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        entities.humans.forEach(h => {
+            if(Math.random() < 0.02) {
+                h.target.x += (Math.random()-0.5)*60; h.target.z += (Math.random()-0.5)*60;
+            }
+            h.mesh.position.lerp(h.target, 0.05);
+        });
+        renderer.render(scene, camera);
+    }
+
+    // --- SURVIVAL LOOP ---
+    setInterval(() => {
+        if(state.aiActive) state.intel = Math.min(100, state.intel + 0.3);
+
+        // Production
+        state.food += (state.farms * 250);
+        state.water += (state.ponds * 250);
+        state.wood += (state.pop * 0.5);
+        state.stone += (state.pop * 0.2) + (state.mines * 60);
+
+        // Consumption
+        state.food -= (state.pop * 6);
+        state.water -= (state.pop * 6);
+
+        let registryHTML = "";
+        state.prayerCount = 0;
+        const isStarving = (state.food <= 0 || state.water <= 0);
+        document.getElementById("starve-warn").style.display = isStarving ? "block" : "none";
+
+        for (let i = entities.humans.length - 1; i >= 0; i--) {
+            let h = entities.humans[i];
+            h.age += 1;
+            if(h.gracePeriod > 0) h.gracePeriod--; // Countdown survival immunity
+
+            // Children logic
+            if(h.type === "kid" && h.age >= 18) {
+                h.type = "adult"; h.mesh.scale.set(1.5, 1.5, 1.5);
+                h.mesh.material.color.setHex(0xcd853f);
+            }
+            if(h.type === "adult" && h.age < 55 && state.pop < 150 && Math.random() < 0.01 && !isStarving) {
+                spawnHuman("kid", {x: h.mesh.position.x+8, z: h.mesh.position.z+8}, 0);
+            }
+
+            // Health
+            if(h.illness) registryHTML += `<div>${h.name}: <span style="color:#ff7b72">${h.illness}</span></div>`;
+            else if(Math.random() < 0.005) h.illness = "Sickness";
+
+            // Death Conditions
+            let died = false;
+            if(h.age > 110) died = true;
+            if(h.illness && Math.random() < 0.04) died = true;
+            if(isStarving && h.gracePeriod <= 0 && Math.random() < 0.2) died = true; // STARVATION DEATH
+
+            if(died) {
+                const grave = new THREE.Mesh(new THREE.BoxGeometry(2, 5, 1), new THREE.MeshStandardMaterial({color: 0x888888}));
+                grave.position.set(500 + (Math.random()-0.5)*120, 2.5, -500 + (Math.random()-0.5)*120);
+                scene.add(grave);
+                scene.remove(h.mesh); 
+                entities.humans.splice(i, 1);
+                state.dead++;
+            }
+        }
+
+        // Automatic Build School
+        if(!state.hasSchool && state.wood > 200 && state.stone > 200) {
+            const s = new THREE.Mesh(new THREE.BoxGeometry(50, 25, 50), new THREE.MeshStandardMaterial({color: 0xaa3333}));
+            s.position.set((Math.random()-0.5)*400, 12.5, (Math.random()-0.5)*400); 
+            scene.add(s); state.hasSchool = true; state.wood -= 200; state.stone -= 200;
+            logR("Citizenry funded a community school.");
+        }
+
+        state.pop = entities.humans.length;
+        document.getElementById("s-intel").innerText = Math.floor(state.intel) + "%";
+        document.getElementById("intel-bar-fill").style.width = state.intel + "%";
+        document.getElementById("s-pop").innerText = state.pop;
+        document.getElementById("s-res-main").innerText = `${Math.max(0, Math.floor(state.food))} / ${Math.max(0, Math.floor(state.water))}`;
+        document.getElementById("s-res-raw").innerText = `${Math.floor(state.wood)} / ${Math.floor(state.stone)}`;
+        document.getElementById("s-dead").innerText = state.dead;
+        document.getElementById("sick-list").innerHTML = registryHTML || "Population stable.";
+    }, 1500);
+
+    animate();
+    // Start with more resources so they don't die instantly
+    for(let i=0; i<10; i++) spawnHuman();
+    state.farms = 1; state.ponds = 1;
+</script>
+</body>
+</html>

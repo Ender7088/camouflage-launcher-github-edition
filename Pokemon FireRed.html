@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokemon FireRed</title>
+    <style>
+        /* Remove default browser spacing and prevent scrollbars */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            background-color: #000; /* Black background for letterboxing if needed */
+        }
+
+        /* Make the iframe fill the entire screen */
+        #game-frame {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Optional: Overlay button to toggle fullscreen mode for a cleaner look */
+        #fullscreen-btn {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: sans-serif;
+            font-size: 12px;
+            z-index: 100;
+            opacity: 0.5;
+            transition: opacity 0.3s;
+        }
+
+        #fullscreen-btn:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <iframe 
+        id="game-frame" 
+        src="https://itfailedemulator.github.io/launcher.html#pokemonred" 
+        allowfullscreen
+        allow="autoplay; gamepad"
+    ></iframe>
+
+    <button id="fullscreen-btn" onclick="toggleFullScreen()">Toggle Fullscreen</button>
+
+    <script>
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error attempting to enable full-screen mode: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+    </script>
+</body>
+</html>

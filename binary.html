@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binary Architect & Image Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: monospace; }
+        .pixel-canvas { 
+            image-rendering: pixelated; 
+            border: 2px solid #334155;
+            background: #000;
+            max-width: 100%;
+            height: auto;
+        }
+        textarea { background: #1e293b !important; color: #38bdf8 !important; border: 1px solid #334155 !important; }
+        button { transition: all 0.2s; }
+        button:hover { transform: translateY(-2px); filter: brightness(1.1); }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-blue-400 mb-2">BINARY ARCHITECT</h1>
+            <p class="text-slate-400">Convert Text ↔ Binary ↔ Visual Pixels</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-slate-800 p-6 rounded-xl shadow-xl border border-slate-700">
+                <label class="block text-sm font-bold mb-2 text-blue-300">INPUT TEXT OR BINARY</label>
+                <textarea id="mainInput" class="w-full h-48 p-4 rounded mb-4 text-sm" placeholder="Type text or paste 010101 here..."></textarea>
+                
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="textToBinary()" class="bg-blue-600 py-2 rounded font-bold">Text → Binary</button>
+                    <button onclick="binaryToText()" class="bg-emerald-600 py-2 rounded font-bold">Binary → Text</button>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 p-6 rounded-xl shadow-xl border border-slate-700 flex flex-col items-center">
+                <label class="block text-sm font-bold mb-2 text-purple-300 w-full">BINARY IMAGE PREVIEW</label>
+                <div class="flex-grow flex items-center justify-center w-full bg-black rounded mb-4 overflow-hidden p-2">
+                    <canvas id="binaryCanvas" class="pixel-canvas"></canvas>
+                </div>
+                <div class="w-full grid grid-cols-2 gap-2">
+                    <button onclick="renderBinaryToImage()" class="bg-purple-600 py-2 rounded font-bold">Render to Image</button>
+                    <button onclick="downloadCanvas()" class="bg-slate-600 py-2 rounded font-bold">Save PNG</button>
+                </div>
+                <p class="text-xs text-slate-500 mt-2 text-center">Black = 0 | White = 1<br>(Canvas size scales to fit your code)</p>
+            </div>
+        </div>
+
+        <div class="mt-6 bg-slate-800 p-6 rounded-xl shadow-xl border border-slate-700">
+            <label class="block text-sm font-bold mb-2 text-amber-300">RESULT DATA</label>
+            <textarea id="mainOutput" class="w-full h-32 p-4 rounded text-sm" readonly placeholder="Result will appear here..."></textarea>
+        </div>
+    </div>
+
+    <script>
+        const input = document.getElementById('mainInput');
+        const output = document.getElementById('mainOutput');
+        const canvas = document.getElementById('binaryCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 1. TEXT TO BINARY
+        function textToBinary() {
+            const str = input.value;
+            const binary = str.split('').map(char => {
+                return char.charCodeAt(0).toString(2).padStart(8, '0');
+            }).join(' ');
+            output.value = binary;
+        }
+
+        // 2. BINARY TO TEXT
+        function binaryToText() {
+            try {
+                const binStr = input.value.replace(/[^01]/g, ' '); // Remove junk
+                const binArray = binStr.trim().split(/\s+/);
+                const text = binArray.map(bin => String.fromCharCode(parseInt(bin, 2))).join('');
+                output.value = text;
+            } catch(e) {
+                output.value = "Error: Invalid binary format.";
+            }
+        }
+
+        // 3. BINARY TO IMAGE (The "Thing" for Binary Images)
+        function renderBinaryToImage() {
+            // Get binary from input or output
+            let rawBinary = (input.value.includes('0') || input.value.includes('1')) ? input.value : output.value;
+            const cleanBinary = rawBinary.replace(/[^01]/g, ''); // Keep only 1s and 0s
+            
+            if (cleanBinary.length === 0) return alert("No binary data found!");
+
+            // Calculate square dimensions
+            const totalPixels = cleanBinary.length;
+            const side = Math.ceil(Math.sqrt(totalPixels));
+            
+            canvas.width = side;
+            canvas.height = side;
+
+            // Clear canvas
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw pixels
+            for (let i = 0; i < cleanBinary.length; i++) {
+                const x = i % side;
+                const y = Math.floor(i / side);
+                
+                // 1 = White, 0 = Black
+                ctx.fillStyle = cleanBinary[i] === '1' ? 'white' : 'black';
+                ctx.fillRect(x, y, 1, 1);
+            }
+
+            // Scale up visual display
+            canvas.style.width = "256px"; 
+            canvas.style.height = "256px";
+        }
+
+        function downloadCanvas() {
+            const link = document.createElement('a');
+            link.download = 'binary-art.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Conquest 6</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto:wght@300;400;700&display=swap');
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #020617;
+            color: #e2e8f0;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .cyber-font { font-family: 'Orbitron', sans-serif; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 4px; }
+
+        .country-card { transition: all 0.2s ease; }
+        .country-card:hover:not(.locked) { transform: translateY(-4px); box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
+        .locked { filter: grayscale(100%); opacity: 0.5; cursor: not-allowed; }
+
+        .stat-icon { filter: drop-shadow(0 0 5px rgba(255,255,255,0.3)); }
+
+        .click-anim { animation: clickPop 0.1s ease-out; }
+        @keyframes clickPop {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+        }
+
+        .resource-float {
+            position: absolute;
+            font-weight: bold;
+            font-size: 1.5rem;
+            pointer-events: none;
+            animation: floatUp 0.8s ease-out forwards;
+            z-index: 50;
+        }
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-50px) scale(1.2); }
+        }
+
+        /* Invasion Alert Pulse */
+        @keyframes alarm {
+            0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(220, 38, 38, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+        .invasion-active {
+            animation: alarm 1.5s infinite;
+            border-color: #ef4444 !important;
+        }
+
+        .tab-btn.active {
+            background-color: #1e293b;
+            border-bottom: 2px solid #3b82f6;
+            color: #60a5fa;
+        }
+
+        /* Chat Styles */
+        .chat-msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; max-width: 80%; }
+        .chat-user { background: #1e40af; align-self: flex-end; margin-left: auto; border-bottom-right-radius: 0; }
+        .chat-ai { background: #334155; align-self: flex-start; border-bottom-left-radius: 0; border: 1px solid #475569; }
+        
+        /* Achievement Styles */
+        .ach-card { transition: all 0.3s; }
+        .ach-locked { opacity: 0.5; filter: grayscale(1); border-style: dashed; }
+        .ach-unlocked { border-color: #eab308; background: rgba(234, 179, 8, 0.1); box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
+
+        /* Achievement Popup */
+        #ach-popup {
+            transform: translate(-50%, -150%);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #ach-popup.show {
+            transform: translate(-50%, 0);
+        }
+
+        /* Map Marker */
+        .map-marker {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: #ef4444;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 5px #ef4444;
+            opacity: 0.8;
+            transition: all 0.5s;
+        }
+
+        /* Barrier Button Animation */
+        .barrier-breaking {
+            animation: shake 0.2s infinite;
+            background-color: #f59e0b !important;
+        }
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            50% { transform: translateX(2px); }
+            75% { transform: translateX(-1px); }
+            100% { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col relative bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')]">
+
+    <!-- Achievement Popup -->
+    <div id="ach-popup" class="fixed top-8 left-1/2 z-[100] bg-slate-800 border-2 border-yellow-500 rounded-xl p-4 shadow-[0_0_50px_rgba(234,179,8,0.5)] flex items-center gap-4 min-w-[300px] max-w-md">
+        <div class="w-16 h-16 bg-yellow-500/10 rounded-full flex items-center justify-center border border-yellow-500 text-yellow-400 text-3xl">
+            <i class="fas fa-trophy" id="ach-popup-icon"></i>
+        </div>
+        <div>
+            <div class="text-xs text-yellow-500 font-bold uppercase tracking-widest mb-1">Achievement Unlocked</div>
+            <h3 class="text-xl font-bold text-white leading-none mb-1" id="ach-popup-title">Title</h3>
+            <p class="text-sm text-slate-400" id="ach-popup-desc">Description goes here.</p>
+        </div>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="bg-slate-900 border-b border-slate-700 shadow-xl z-30 flex flex-col md:flex-row justify-between items-center p-0 md:h-16">
+        <div class="flex items-center gap-4 px-4 py-2 md:py-0 w-full md:w-auto border-b md:border-b-0 border-slate-800">
+            <div id="navbar-globe" onclick="clickGlobe()" class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white shadow-[0_0_10px_rgba(37,99,235,0.5)] cursor-pointer hover:bg-blue-500 transition">
+                <i class="fas fa-globe"></i>
+            </div>
+            <div id="nav-faction-container" onclick="clickFactionName()" class="cursor-pointer select-none">
+                <h1 class="text-lg font-bold cyber-font text-white tracking-wider">GLOBAL CONQUEST</h1>
+                <p class="text-[10px] text-blue-400 uppercase" id="nav-faction-name">The White Flag Rebellion</p>
+            </div>
+        </div>
+
+        <div class="flex-1 flex justify-center w-full md:w-auto overflow-x-auto no-scrollbar">
+            <button onclick="switchTab('world')" id="tab-world" class="tab-btn active px-4 py-4 font-bold text-slate-400 hover:text-white transition flex items-center gap-2 text-xs md:text-sm whitespace-nowrap">
+                <i class="fas fa-globe-americas"></i> WORLD
+            </button>
+            <button onclick="switchTab('countries')" id="tab-countries" class="tab-btn px-4 py-4 font-bold text-slate-400 hover:text-white transition flex items-center gap-2 text-xs md:text-sm whitespace-nowrap">
+                <i class="fas fa-map-marked-alt"></i> COUNTRIES
+            </button>
+            <button onclick="switchTab('defense')" id="tab-defense" class="tab-btn px-4 py-4 font-bold text-slate-400 hover:text-blue-300 transition flex items-center gap-2 text-xs md:text-sm whitespace-nowrap">
+                <i class="fas fa-shield-alt"></i> DEFENSE
+            </button>
+            <button onclick="switchTab('attack')" id="tab-attack" class="tab-btn px-4 py-4 font-bold text-slate-400 hover:text-red-300 transition flex items-center gap-2 text-xs md:text-sm whitespace-nowrap">
+                <i class="fas fa-sword"></i> ATTACK
+            </button>
+            <button onclick="switchTab('ops')" id="tab-ops" class="tab-btn px-4 py-4 font-bold text-slate-400 hover:text-purple-300 transition flex items-center gap-2 text-xs md:text-sm whitespace-nowrap">
+                <i class="fas fa-user-secret"></i> COVERT OPS
+            </button>
+             <button onclick="switchTab('achievements')" id="tab-achievements" class="tab-btn px-4 py-4 font-bold text-slate-400 hover:text-yellow-300 transition flex items-center gap-2 text-xs md:text-sm whitespace-nowrap">
+                <i class="fas fa-trophy"></i> MEDALS
+            </button>
+            <button onclick="switchTab('government')" id="tab-government" class="tab-btn px-4 py-4 font-bold text-slate-400 hover:text-green-300 transition flex items-center gap-2 text-xs md:text-sm whitespace-nowrap">
+                <i class="fas fa-building"></i> GOVT
+            </button>
+            <button onclick="switchTab('help')" id="tab-help" class="tab-btn px-4 py-4 font-bold text-slate-400 hover:text-cyan-300 transition flex items-center gap-2 text-xs md:text-sm whitespace-nowrap">
+                <i class="fas fa-robot"></i> HELP
+            </button>
+        </div>
+
+        <div class="flex items-center gap-4 px-4 py-2 bg-slate-950/50 h-full border-l border-slate-800">
+            <div class="flex flex-col items-end mr-2">
+                <div class="text-[10px] text-slate-500 uppercase flex items-center gap-1">
+                    <i class="fas fa-clock"></i> Invasion
+                </div>
+                <div id="invasion-timer" class="text-xl font-mono font-bold text-orange-500">05:00</div>
+            </div>
+            <div onclick="clickMoney()" class="flex flex-col items-end min-w-[100px] cursor-pointer select-none hover:bg-slate-800/50 rounded px-1 transition">
+                <div class="text-[10px] text-slate-500 uppercase">War Chest</div>
+                <div id="nav-money" class="text-xl font-bold cyber-font text-green-400">$0</div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-1 overflow-hidden relative">
+        
+        <!-- TAB: WORLD MAP -->
+        <div id="view-world" class="view-section h-full overflow-hidden relative flex flex-col items-center justify-center bg-black">
+            <div class="relative w-full h-full max-w-7xl max-h-[80vh] flex items-center justify-center">
+                 <!-- Map Image Container -->
+                <div id="map-container" class="relative w-full h-full bg-slate-900 border border-slate-700 shadow-2xl rounded-xl overflow-hidden">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg" alt="World Map" class="w-full h-full object-cover opacity-50">
+                    <!-- Markers Overlay -->
+                    <div id="map-markers" class="absolute inset-0"></div>
+                </div>
+                
+                <!-- Claim Earth Button -->
+                <div id="claim-earth-container" class="absolute inset-0 flex items-center justify-center bg-black/80 z-20 hidden">
+                    <div class="text-center">
+                        <h1 class="text-6xl text-blue-500 cyber-font font-black mb-4">WORLD CONQUERED</h1>
+                        <button onclick="claimEarth()" class="bg-blue-600 hover:bg-blue-500 text-white text-3xl font-bold py-6 px-12 rounded-full shadow-[0_0_50px_rgba(37,99,235,0.8)] animate-pulse">
+                            CLAIM EARTH
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: COUNTRIES -->
+        <div id="view-countries" class="view-section hidden h-full overflow-y-auto p-4 md:p-8">
+            <div class="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20" id="country-grid">
+                <!-- Countries Generated JS -->
+            </div>
+        </div>
+
+        <!-- TAB: DEFENSE -->
+        <div id="view-defense" class="view-section hidden h-full flex flex-col items-center justify-center p-4 bg-slate-900/50">
+            <div class="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div class="flex flex-col items-center">
+                    <h2 class="text-3xl cyber-font text-blue-400 mb-2">DEFENSE SYSTEMS</h2>
+                    <div class="text-6xl font-bold text-white mb-8" id="display-defense">0</div>
+                    <button id="btn-defense-click" class="w-64 h-64 bg-blue-600 rounded-full shadow-[0_0_50px_rgba(37,99,235,0.3)] border-4 border-blue-400 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-tr from-blue-800 to-transparent opacity-50"></div>
+                        <i class="fas fa-shield-alt text-9xl text-white drop-shadow-lg z-10 group-hover:rotate-12 transition-transform duration-300"></i>
+                    </button>
+                    <p class="mt-6 text-slate-400 animate-pulse">Click to Fortify Borders</p>
+                </div>
+                <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+                    <h3 class="text-xl font-bold text-white mb-4 border-b border-slate-700 pb-2">Engineering Corps</h3>
+                    <div class="mb-6">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-400">Current Level</span>
+                            <span class="text-blue-400 font-bold" id="def-level">1</span>
+                        </div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-400">Power Per Click</span>
+                            <span class="text-white font-bold" id="def-ppc">+1</span>
+                        </div>
+                    </div>
+                    <button onclick="upgradeStat('defense')" id="btn-upgrade-defense" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 p-4 rounded-xl flex flex-col items-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span class="font-bold text-lg text-white">UPGRADE SHIELDING</span>
+                        <div class="flex gap-4 text-xs">
+                            <span class="text-green-400"><i class="fas fa-dollar-sign"></i> <span id="cost-def-money">0</span></span>
+                            <span class="text-blue-400"><i class="fas fa-shield-alt"></i> <span id="cost-def-points">0</span></span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: ATTACK -->
+        <div id="view-attack" class="view-section hidden h-full flex flex-col items-center justify-center p-4 bg-slate-900/50">
+             <div class="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div class="flex flex-col items-center order-1 md:order-2">
+                    <h2 class="text-3xl cyber-font text-red-500 mb-2">OFFENSIVE POWER</h2>
+                    <div class="text-6xl font-bold text-white mb-8" id="display-attack">0</div>
+                    <button id="btn-attack-click" class="w-64 h-64 bg-red-600 rounded-full shadow-[0_0_50px_rgba(220,38,38,0.3)] border-4 border-red-400 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-tr from-red-800 to-transparent opacity-50"></div>
+                        <i class="fas fa-khanda text-9xl text-white drop-shadow-lg z-10 group-hover:-rotate-12 transition-transform duration-300"></i>
+                    </button>
+                    <p class="mt-6 text-slate-400 animate-pulse">Click to Train Troops</p>
+                </div>
+                <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl order-2 md:order-1">
+                    <h3 class="text-xl font-bold text-white mb-4 border-b border-slate-700 pb-2">Weapons Factory</h3>
+                    <div class="mb-6">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-400">Current Level</span>
+                            <span class="text-red-400 font-bold" id="atk-level">1</span>
+                        </div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-400">Power Per Click</span>
+                            <span class="text-white font-bold" id="atk-ppc">+1</span>
+                        </div>
+                    </div>
+                    <button onclick="upgradeStat('attack')" id="btn-upgrade-attack" class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 p-4 rounded-xl flex flex-col items-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span class="font-bold text-lg text-white">UPGRADE WEAPONRY</span>
+                        <div class="flex gap-4 text-xs">
+                            <span class="text-green-400"><i class="fas fa-dollar-sign"></i> <span id="cost-atk-money">0</span></span>
+                            <span class="text-red-400"><i class="fas fa-khanda"></i> <span id="cost-atk-points">0</span></span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: COVERT OPS -->
+        <div id="view-ops" class="view-section hidden h-full overflow-y-auto p-8">
+            <div class="max-w-4xl mx-auto">
+                <div class="text-center mb-10">
+                    <h2 class="text-3xl cyber-font text-purple-400 mb-2">TACTICAL OPERATIONS</h2>
+                    <p class="text-slate-400">Deploy resources to gain temporary advantages in warfare.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-slate-800 border border-slate-600 rounded-xl p-6 hover:border-purple-500 transition shadow-lg relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-purple-600/5 group-hover:bg-purple-600/10 transition"></div>
+                        <div class="relative z-10 flex justify-between items-start mb-4">
+                            <div class="p-3 bg-purple-900/50 rounded-lg text-purple-300 text-2xl"><i class="fas fa-broadcast-tower"></i></div>
+                            <span class="text-xs bg-purple-900 text-purple-300 px-2 py-1 rounded border border-purple-500">30 Seconds</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-2 relative z-10">Propaganda Campaign</h3>
+                        <p class="text-sm text-slate-400 mb-6 relative z-10">Doubles money harvested from conquered territories.</p>
+                        <button onclick="activateOp('propaganda')" id="btn-op-propaganda" class="w-full bg-slate-700 hover:bg-purple-700 text-white font-bold py-3 rounded-lg border border-slate-500 transition relative z-10 flex justify-between px-4">
+                            <span>DEPLOY</span>
+                            <span class="text-green-400 font-mono">$10,000</span>
+                        </button>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-600 rounded-xl p-6 hover:border-red-500 transition shadow-lg relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-red-600/5 group-hover:bg-red-600/10 transition"></div>
+                         <div class="relative z-10 flex justify-between items-start mb-4">
+                            <div class="p-3 bg-red-900/50 rounded-lg text-red-300 text-2xl"><i class="fas fa-bomb"></i></div>
+                            <span class="text-xs bg-red-900 text-red-300 px-2 py-1 rounded border border-red-500">Next Battle</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-2 relative z-10">Sabotage Grid</h3>
+                        <p class="text-sm text-slate-400 mb-6 relative z-10">Reduces required Defense & Attack for the next country by 25%.</p>
+                        <button onclick="activateOp('sabotage')" id="btn-op-sabotage" class="w-full bg-slate-700 hover:bg-red-700 text-white font-bold py-3 rounded-lg border border-slate-500 transition relative z-10 flex justify-between px-4">
+                            <span>DEPLOY</span>
+                            <span class="text-green-400 font-mono">$25,000</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="ops-status" class="mt-8 text-center text-purple-300 font-mono hidden">
+                    <i class="fas fa-spinner fa-spin"></i> OPERATION ACTIVE: PROPAGANDA (<span id="ops-timer">00</span>s)
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: ACHIEVEMENTS -->
+        <div id="view-achievements" class="view-section hidden h-full overflow-y-auto p-8">
+            <div class="max-w-6xl mx-auto">
+                 <div class="text-center mb-10">
+                    <h2 class="text-3xl cyber-font text-yellow-400 mb-2">HALL OF MEDALS</h2>
+                    <p class="text-slate-400">Unlock trophies to gain honor and glory.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="achievements-grid">
+                    <!-- Achievements JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: GOVERNMENT -->
+        <div id="view-government" class="view-section hidden h-full overflow-y-auto p-8">
+            <div class="max-w-3xl mx-auto space-y-8">
+                <div class="bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-xl">
+                    <h2 class="text-2xl cyber-font text-white mb-6"><i class="fas fa-id-card"></i> Faction Identity</h2>
+                    <div class="space-y-4">
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <input type="text" id="input-faction-name" class="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500" placeholder="Enter Faction Name">
+                            <button onclick="updateFactionName()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-3 rounded-lg transition">UPDATE NAME</button>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                             <label class="text-slate-400 text-xs uppercase tracking-wider">Official Language</label>
+                             <select id="lang-select" class="bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500">
+                                 <!-- Languages populated via JS -->
+                             </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700">
+                        <h3 class="text-lg font-bold text-slate-400 mb-4 uppercase tracking-widest">Military Census</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                                <span class="text-slate-300">Total Money</span>
+                                <span class="text-green-400 font-mono text-xl" id="gov-money">$0</span>
+                            </div>
+                            <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                                <span class="text-slate-300">Defense Rating</span>
+                                <span class="text-blue-400 font-mono text-xl" id="gov-defense">0</span>
+                            </div>
+                            <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                                <span class="text-slate-300">Attack Rating</span>
+                                <span class="text-red-400 font-mono text-xl" id="gov-attack">0</span>
+                            </div>
+                        </div>
+                    </div>
+                     <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700">
+                        <h3 class="text-lg font-bold text-slate-400 mb-4 uppercase tracking-widest">War Room Records</h3>
+                         <div class="space-y-4">
+                            <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                                <span class="text-slate-300">Countries Conquered</span>
+                                <span class="text-yellow-400 font-mono text-xl" id="gov-taken">0</span>
+                            </div>
+                            <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                                <span class="text-slate-300">Invasions Defeated</span>
+                                <span class="text-orange-400 font-mono text-xl" id="gov-attempt-tries">0</span>
+                            </div>
+                             <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                                <span class="text-slate-300">Next Invasion</span>
+                                <span class="text-white font-mono text-xl" id="gov-next-invasion">Soon</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: HELP (AI CHAT) -->
+        <div id="view-help" class="view-section hidden h-full flex flex-col p-4 md:p-8">
+            <div class="max-w-2xl mx-auto w-full flex-1 flex flex-col bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden">
+                <div class="p-4 bg-slate-900 border-b border-slate-700 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-cyan-600 flex items-center justify-center text-white"><i class="fas fa-robot"></i></div>
+                    <div>
+                        <h3 class="text-white font-bold cyber-font">WarBot 9000</h3>
+                        <p class="text-xs text-cyan-400">AI Tactical Advisor</p>
+                    </div>
+                </div>
+                <div id="chat-history" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2 bg-slate-800/50">
+                    <div class="chat-msg chat-ai text-slate-200">
+                        Greetings, Commander. I am WarBot 9000. Ask me anything about managing your army, finances, or invasions.
+                    </div>
+                </div>
+                <div class="p-4 bg-slate-900 border-t border-slate-700 flex gap-2">
+                    <input type="text" id="chat-input" class="flex-1 bg-slate-800 text-white rounded px-4 py-2 border border-slate-600 focus:outline-none focus:border-cyan-500" placeholder="Ask about defense, money, or difficulty...">
+                    <button onclick="sendChat()" class="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-2 rounded font-bold"><i class="fas fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- VS / INVASION MODAL -->
+    <div id="vs-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex flex-col items-center justify-center p-4">
+        <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
+        <div id="invasion-warning" class="hidden absolute top-0 left-0 w-full h-16 bg-red-600/80 flex items-center justify-center animate-pulse z-10">
+            <span class="text-2xl font-black text-white tracking-[0.5em] cyber-font">⚠️ INVASION DETECTED ⚠️</span>
+        </div>
+        <div class="z-10 flex flex-col md:flex-row items-center gap-8 md:gap-16 transition-all duration-500" id="vs-content">
+            <div class="text-center">
+                <div id="vs-enemy-flag" class="text-9xl mb-4 drop-shadow-[0_0_30px_rgba(239,68,68,0.5)]">🇺🇸</div>
+                <h2 id="vs-enemy-name" class="text-4xl font-black text-red-500 cyber-font uppercase tracking-widest">USA</h2>
+                <p id="vs-type-text" class="text-red-300 mt-2 text-xl">DEFENDING</p>
+                <div id="vs-requirements" class="mt-4 p-4 bg-slate-900/80 rounded-lg border border-red-900">
+                    <div class="text-xs text-slate-400 mb-2">INTELLIGENCE REPORT</div>
+                    <div class="flex flex-col gap-1 text-sm font-mono">
+                         <div class="flex justify-between w-48"><span class="text-slate-500">COST:</span> <span id="req-money" class="text-green-400">$100k</span></div>
+                         <div class="flex justify-between w-48"><span class="text-slate-500">DEF REQ:</span> <span id="req-def" class="text-blue-400">500</span></div>
+                         <div class="flex justify-between w-48"><span class="text-slate-500">ATK REQ:</span> <span id="req-atk" class="text-red-400">500</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="relative">
+                <div class="text-8xl font-black italic text-white cyber-font z-10 relative">VS</div>
+            </div>
+            <div class="text-center">
+                <div class="text-9xl mb-4 drop-shadow-[0_0_30px_rgba(255,255,255,0.5)]">🏳️</div>
+                <h2 class="text-4xl font-black text-white cyber-font uppercase tracking-widest">YOU</h2>
+                <div class="flex gap-4 justify-center mt-2 font-mono text-sm">
+                    <span class="text-blue-400" id="my-def-stat">DEF: 0</span>
+                    <span class="text-red-400" id="my-atk-stat">ATK: 0</span>
+                </div>
+            </div>
+        </div>
+        <button id="start-war-btn" class="mt-12 z-10 bg-red-600 hover:bg-red-500 text-white text-2xl px-12 py-4 rounded-full font-bold shadow-lg shadow-red-900/50 transition cyber-font hidden">
+            ENGAGE HOSTILES
+        </button>
+        <button id="cancel-war-btn" onclick="closeVS()" class="mt-4 z-10 text-slate-500 hover:text-white underline">Retreat</button>
+    </div>
+
+    <!-- WAR ROOM (CLICKER) -->
+    <div id="war-modal" class="fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border-2 border-slate-600 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col relative">
+            
+            <!-- Barrier Overlay -->
+            <div id="war-barrier" class="absolute inset-0 bg-black/80 z-20 hidden flex flex-col items-center justify-center">
+                <h3 class="text-4xl text-red-500 font-black cyber-font mb-4">BARRIER DETECTED</h3>
+                <p class="text-slate-300 mb-8">Enemy defenses holding! Break through!</p>
+                <button id="barrier-btn" class="w-48 h-48 rounded-full bg-orange-500 border-8 border-orange-400 shadow-[0_0_50px_rgba(245,158,11,0.5)] flex items-center justify-center text-white text-2xl font-bold active:scale-95 transition-transform select-none">
+                    HOLD TO<br>BREAK
+                </button>
+                <div class="w-64 h-2 bg-slate-700 rounded-full mt-4 overflow-hidden">
+                    <div id="barrier-progress" class="h-full bg-orange-500 w-0"></div>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 p-4 border-b border-slate-700 flex justify-between items-center">
+                <div><h3 class="text-xl font-bold text-red-400 cyber-font" id="war-target-name">Invasion: ???</h3></div>
+                <div class="text-right"><div class="text-3xl font-mono font-bold text-white" id="war-timer">00:00</div></div>
+            </div>
+            <div class="p-8 flex flex-col items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900">
+                <div class="w-full bg-slate-700 h-6 rounded-full mb-8 overflow-hidden relative">
+                    <div id="war-progress" class="h-full bg-gradient-to-r from-red-600 to-orange-500 w-0 transition-all duration-100 ease-linear"></div>
+                    <p class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white shadow-black drop-shadow-md">
+                        <span id="clicks-current">0</span> / <span id="clicks-target">100</span> Power
+                    </p>
+                </div>
+                <button id="war-click-btn" class="w-48 h-48 rounded-full bg-red-600 border-4 border-red-400 shadow-[0_0_50px_rgba(220,38,38,0.4)] active:scale-95 active:shadow-none transition-all flex items-center justify-center group relative overflow-hidden">
+                    <span class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                    <i class="fas fa-crosshairs text-6xl text-white group-active:scale-125 transition-transform"></i>
+                </button>
+            </div>
+            <div class="bg-slate-950 p-4 grid grid-cols-2 gap-4 border-t border-slate-700">
+                <button onclick="buySupport(1000, 10)" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 p-3 rounded flex flex-col items-center transition disabled:opacity-50" id="btn-supp-1">
+                    <span class="text-blue-400 font-bold">+10 Power</span>
+                    <span class="text-xs text-green-400">$1,000</span>
+                </button>
+                <button onclick="buySupport(10000, 100)" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 p-3 rounded flex flex-col items-center transition disabled:opacity-50" id="btn-supp-2">
+                    <span class="text-purple-400 font-bold">+100 Power</span>
+                    <span class="text-xs text-green-400">$10,000</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN MENU -->
+    <div id="main-menu" class="fixed inset-0 bg-slate-950 z-[60] flex flex-col items-center justify-center">
+        <div class="text-center space-y-8 p-8 max-w-md w-full relative">
+             <div class="absolute inset-0 bg-blue-500/10 blur-3xl rounded-full"></div>
+            <div class="mb-12 relative">
+                <h1 class="text-6xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 cyber-font mb-4">GLOBAL<br>CONQUEST</h1>
+                <p class="text-slate-400 text-lg">Total Warfare Simulator</p>
+            </div>
+            <button onclick="startGame(true)" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg relative z-10 transition hover:scale-105">START NEW GAME</button>
+            <button onclick="startGame(false)" id="load-btn" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg relative z-10 transition hover:scale-105 disabled:opacity-50">RESUME CAMPAIGN</button>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-800 border border-slate-600 text-white px-6 py-3 rounded-full shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-[70] flex items-center gap-3">
+        <i class="fas fa-info-circle text-blue-400"></i>
+        <span id="toast-msg">Notification</span>
+    </div>
+
+    <script>
+        // --- DATA ---
+        const rawCountries = [
+            { name: "Tuvalu", flag: "🇹🇻", gdp: 60000000, lat: -8.5, lon: 179.2 },
+            { name: "Nauru", flag: "🇳🇷", gdp: 130000000, lat: -0.5, lon: 166.9 },
+            { name: "Kiribati", flag: "🇰🇮", gdp: 200000000, lat: -3.3, lon: -168.7 },
+            { name: "Palau", flag: "🇵🇼", gdp: 300000000, lat: 7.5, lon: 134.5 },
+            { name: "Marshall Islands", flag: "🇲🇭", gdp: 240000000, lat: 7.1, lon: 171.2 },
+            { name: "Micronesia", flag: "🇫🇲", gdp: 400000000, lat: 6.9, lon: 158.2 },
+            { name: "Tonga", flag: "🇹🇴", gdp: 500000000, lat: -21.1, lon: -175.2 },
+            { name: "Dominica", flag: "🇩🇲", gdp: 600000000, lat: 15.4, lon: -61.3 },
+            { name: "Samoa", flag: "🇼🇸", gdp: 800000000, lat: -13.7, lon: -172.1 },
+            { name: "Vanuatu", flag: "🇻🇺", gdp: 900000000, lat: -15.3, lon: 166.9 },
+            { name: "Grenada", flag: "🇬🇩", gdp: 1200000000, lat: 12.1, lon: -61.6 },
+            { name: "Seychelles", flag: "🇸🇨", gdp: 1500000000, lat: -4.6, lon: 55.4 },
+            { name: "Antigua", flag: "🇦🇬", gdp: 1600000000, lat: 17.0, lon: -61.8 },
+            { name: "San Marino", flag: "🇸🇲", gdp: 1700000000, lat: 43.9, lon: 12.4 },
+            { name: "Solomon Islands", flag: "🇸🇧", gdp: 1800000000, lat: -9.6, lon: 160.1 },
+            { name: "Comoros", flag: "🇰🇲", gdp: 1900000000, lat: -11.6, lon: 43.2 },
+            { name: "Bhutan", flag: "🇧🇹", gdp: 2500000000, lat: 27.5, lon: 90.4 },
+            { name: "Lesotho", flag: "🇱🇸", gdp: 2800000000, lat: -29.6, lon: 28.2 },
+            { name: "Eswatini", flag: "🇸🇿", gdp: 4000000000, lat: -26.5, lon: 31.4 },
+            { name: "Maldives", flag: "🇲🇻", gdp: 5000000000, lat: 3.2, lon: 73.2 },
+            { name: "Fiji", flag: "🇫🇯", gdp: 5500000000, lat: -17.7, lon: 178.0 },
+            { name: "Monaco", flag: "🇲🇨", gdp: 7000000000, lat: 43.7, lon: 7.4 },
+            { name: "Liechtenstein", flag: "🇱🇮", gdp: 7500000000, lat: 47.1, lon: 9.5 },
+            { name: "South Sudan", flag: "🇸🇸", gdp: 8000000000, lat: 6.8, lon: 31.3 },
+            { name: "Togo", flag: "🇹🇬", gdp: 8500000000, lat: 8.6, lon: 0.8 },
+            { name: "Sierra Leone", flag: "🇸🇱", gdp: 9000000000, lat: 8.4, lon: -11.7 },
+            { name: "Montenegro", flag: "🇲🇪", gdp: 9500000000, lat: 42.7, lon: 19.3 },
+            { name: "Barbados", flag: "🇧🇧", gdp: 10000000000, lat: 13.1, lon: -59.5 },
+            { name: "Malawi", flag: "🇲🇼", gdp: 11000000000, lat: -13.2, lon: 34.3 },
+            { name: "Bahamas", flag: "🇧🇸", gdp: 12000000000, lat: 25.0, lon: -77.3 },
+            { name: "Moldova", flag: "🇲🇩", gdp: 13000000000, lat: 47.4, lon: 28.3 },
+            { name: "Niger", flag: "🇳🇪", gdp: 14000000000, lat: 17.6, lon: 8.0 },
+            { name: "Chad", flag: "🇹🇩", gdp: 15000000000, lat: 15.4, lon: 18.7 },
+            { name: "Madagascar", flag: "🇲🇬", gdp: 16000000000, lat: -18.7, lon: 46.8 },
+            { name: "Jamaica", flag: "🇯🇲", gdp: 17000000000, lat: 18.1, lon: -77.2 },
+            { name: "Mali", flag: "🇲🇱", gdp: 19000000000, lat: 17.5, lon: -3.9 },
+            { name: "Botswana", flag: "🇧🇼", gdp: 21000000000, lat: -22.3, lon: 24.6 },
+            { name: "Gabon", flag: "🇬🇦", gdp: 22000000000, lat: -0.8, lon: 11.6 },
+            { name: "Albania", flag: "🇦🇱", gdp: 23000000000, lat: 41.1, lon: 20.1 },
+            { name: "Malta", flag: "🇲🇹", gdp: 24000000000, lat: 35.9, lon: 14.3 },
+            { name: "Senegal", flag: "🇸🇳", gdp: 27000000000, lat: 14.4, lon: -14.4 },
+            { name: "Iceland", flag: "🇮🇸", gdp: 30000000000, lat: 64.9, lon: -19.0 },
+            { name: "El Salvador", flag: "🇸🇻", gdp: 32000000000, lat: 13.7, lon: -88.8 },
+            { name: "Estonia", flag: "🇪🇪", gdp: 36000000000, lat: 58.5, lon: 25.0 },
+            { name: "Cyprus", flag: "🇨🇾", gdp: 37000000000, lat: 35.1, lon: 33.4 },
+            { name: "Nepal", flag: "🇳🇵", gdp: 40000000000, lat: 28.3, lon: 84.1 },
+            { name: "Bolivia", flag: "🇧🇴", gdp: 43000000000, lat: -16.2, lon: -63.5 },
+            { name: "Uganda", flag: "🇺🇬", gdp: 45000000000, lat: 1.3, lon: 32.2 },
+            { name: "Tunisia", flag: "🇹🇳", gdp: 46000000000, lat: 33.8, lon: 9.5 },
+            { name: "Cameroon", flag: "🇨🇲", gdp: 48000000000, lat: 7.3, lon: 12.3 },
+            { name: "Latvia", flag: "🇱🇻", gdp: 50000000000, lat: 56.8, lon: 24.6 },
+            { name: "Bahrain", flag: "🇧🇭", gdp: 55000000000, lat: 26.0, lon: 50.5 },
+            { name: "Jordan", flag: "🇯🇴", gdp: 60000000000, lat: 30.5, lon: 36.2 },
+            { name: "Libya", flag: "🇱🇾", gdp: 65000000000, lat: 26.3, lon: 17.2 },
+            { name: "Tanzania", flag: "🇹🇿", gdp: 70000000000, lat: -6.3, lon: 34.8 },
+            { name: "Ghana", flag: "🇬🇭", gdp: 75000000000, lat: 7.9, lon: -1.0 },
+            { name: "Sri Lanka", flag: "🇱🇰", gdp: 80000000000, lat: 7.8, lon: 80.7 },
+            { name: "Belarus", flag: "🇧🇾", gdp: 85000000000, lat: 53.7, lon: 27.9 },
+            { name: "Croatia", flag: "🇭🇷", gdp: 90000000000, lat: 45.1, lon: 15.2 },
+            { name: "Uruguay", flag: "🇺🇾", gdp: 95000000000, lat: -32.5, lon: -55.7 },
+            { name: "Costa Rica", flag: "🇨🇷", gdp: 100000000000, lat: 9.7, lon: -83.7 },
+            { name: "Panama", flag: "🇵🇦", gdp: 110000000000, lat: 8.5, lon: -80.7 },
+            { name: "Kenya", flag: "🇰🇪", gdp: 120000000000, lat: -0.0, lon: 37.9 },
+            { name: "Ethiopia", flag: "🇪🇹", gdp: 130000000000, lat: 9.1, lon: 40.4 },
+            { name: "Luxembourg", flag: "🇱🇺", gdp: 140000000000, lat: 49.8, lon: 6.1 },
+            { name: "Oman", flag: "🇴🇲", gdp: 150000000000, lat: 21.4, lon: 55.9 },
+            { name: "Dominican Republic", flag: "🇩🇴", gdp: 160000000000, lat: 18.7, lon: -70.1 },
+            { name: "Kuwait", flag: "🇰🇼", gdp: 170000000000, lat: 29.3, lon: 47.4 },
+            { name: "Morocco", flag: "🇲🇦", gdp: 180000000000, lat: 31.7, lon: -7.0 },
+            { name: "Slovakia", flag: "🇸🇰", gdp: 190000000000, lat: 48.6, lon: 19.6 },
+            { name: "Ecuador", flag: "🇪🇨", gdp: 200000000000, lat: -1.8, lon: -78.1 },
+            { name: "Qatar", flag: "🇶🇦", gdp: 220000000000, lat: 25.3, lon: 51.1 },
+            { name: "Greece", flag: "🇬🇷", gdp: 240000000000, lat: 39.0, lon: 21.8 },
+            { name: "New Zealand", flag: "🇳🇿", gdp: 250000000000, lat: -40.9, lon: 174.8 },
+            { name: "Peru", flag: "🇵🇪", gdp: 260000000000, lat: -9.1, lon: -75.0 },
+            { name: "Iraq", flag: "🇮🇶", gdp: 270000000000, lat: 33.2, lon: 43.6 },
+            { name: "Kazakhstan", flag: "🇰🇿", gdp: 280000000000, lat: 48.0, lon: 66.9 },
+            { name: "Portugal", flag: "🇵🇹", gdp: 290000000000, lat: 39.3, lon: -8.2 },
+            { name: "Czech Republic", flag: "🇨🇿", gdp: 300000000000, lat: 49.8, lon: 15.4 },
+            { name: "Finland", flag: "🇫🇮", gdp: 320000000000, lat: 61.9, lon: 25.7 },
+            { name: "Romania", flag: "🇷🇴", gdp: 340000000000, lat: 45.9, lon: 24.9 },
+            { name: "Colombia", flag: "🇨🇴", gdp: 360000000000, lat: 4.5, lon: -74.2 },
+            { name: "Pakistan", flag: "🇵🇰", gdp: 380000000000, lat: 30.3, lon: 69.3 },
+            { name: "Chile", flag: "🇨🇱", gdp: 400000000000, lat: -35.6, lon: -71.5 },
+            { name: "Denmark", flag: "🇩🇰", gdp: 420000000000, lat: 56.2, lon: 9.5 },
+            { name: "Egypt", flag: "🇪🇬", gdp: 440000000000, lat: 26.8, lon: 30.8 },
+            { name: "Philippines", flag: "🇵🇭", gdp: 450000000000, lat: 12.8, lon: 121.7 },
+            { name: "Vietnam", flag: "🇻🇳", gdp: 470000000000, lat: 14.0, lon: 108.2 },
+            { name: "South Africa", flag: "🇿🇦", gdp: 480000000000, lat: -30.5, lon: 22.9 },
+            { name: "Malaysia", flag: "🇲🇾", gdp: 500000000000, lat: 4.2, lon: 101.9 },
+            { name: "Singapore", flag: "🇸🇬", gdp: 520000000000, lat: 1.3, lon: 103.8 },
+            { name: "Bangladesh", flag: "🇧🇩", gdp: 550000000000, lat: 23.6, lon: 90.3 },
+            { name: "Ireland", flag: "🇮🇪", gdp: 580000000000, lat: 53.4, lon: -8.2 },
+            { name: "Norway", flag: "🇳🇴", gdp: 600000000000, lat: 60.4, lon: 8.4 },
+            { name: "Israel", flag: "🇮🇱", gdp: 620000000000, lat: 31.0, lon: 34.8 },
+            { name: "Thailand", flag: "🇹🇭", gdp: 650000000000, lat: 15.8, lon: 100.9 },
+            { name: "Austria", flag: "🇦🇹", gdp: 680000000000, lat: 47.5, lon: 14.5 },
+            { name: "Belgium", flag: "🇧🇪", gdp: 700000000000, lat: 50.5, lon: 4.4 },
+            { name: "Sweden", flag: "🇸🇪", gdp: 720000000000, lat: 60.1, lon: 18.6 },
+            { name: "Nigeria", flag: "🇳🇬", gdp: 750000000000, lat: 9.0, lon: 8.6 },
+            { name: "Poland", flag: "🇵🇱", gdp: 800000000000, lat: 51.9, lon: 19.1 },
+            { name: "Argentina", flag: "🇦🇷", gdp: 850000000000, lat: -38.4, lon: -63.6 },
+            { name: "Turkey", flag: "🇹🇷", gdp: 900000000000, lat: 38.9, lon: 35.2 },
+            { name: "Switzerland", flag: "🇨🇭", gdp: 950000000000, lat: 46.8, lon: 8.2 },
+            { name: "Saudi Arabia", flag: "🇸🇦", gdp: 1100000000000, lat: 23.8, lon: 45.0 },
+            { name: "Netherlands", flag: "🇳🇱", gdp: 1200000000000, lat: 52.1, lon: 5.2 },
+            { name: "Indonesia", flag: "🇮🇩", gdp: 1400000000000, lat: -0.7, lon: 113.9 },
+            { name: "Spain", flag: "🇪🇸", gdp: 1500000000000, lat: 40.4, lon: -3.7 },
+            { name: "Mexico", flag: "🇲🇽", gdp: 1600000000000, lat: 23.6, lon: -102.5 },
+            { name: "Australia", flag: "🇦🇺", gdp: 1800000000000, lat: -25.2, lon: 133.7 },
+            { name: "South Korea", flag: "🇰🇷", gdp: 1900000000000, lat: 35.9, lon: 127.7 },
+            { name: "Russia", flag: "🇷🇺", gdp: 2000000000000, lat: 61.5, lon: 105.3 },
+            { name: "Canada", flag: "🇨🇦", gdp: 2200000000000, lat: 56.1, lon: -106.3 },
+            { name: "Brazil", flag: "🇧🇷", gdp: 2400000000000, lat: -14.2, lon: -51.9 },
+            { name: "Italy", flag: "🇮🇹", gdp: 2500000000000, lat: 41.8, lon: 12.5 },
+            { name: "France", flag: "🇫🇷", gdp: 3000000000000, lat: 46.2, lon: 2.2 },
+            { name: "United Kingdom", flag: "🇬🇧", gdp: 3500000000000, lat: 55.3, lon: -3.4 },
+            { name: "India", flag: "🇮🇳", gdp: 4000000000000, lat: 20.5, lon: 78.9 },
+            { name: "Germany", flag: "🇩🇪", gdp: 4500000000000, lat: 51.1, lon: 10.4 },
+            { name: "Japan", flag: "🇯🇵", gdp: 5000000000000, lat: 36.2, lon: 138.2 },
+            { name: "China", flag: "🇨🇳", gdp: 18000000000000, lat: 35.8, lon: 104.1 },
+            { name: "United States", flag: "🇺🇸", gdp: 23000000000000, lat: 37.0, lon: -95.7 },
+            { name: "Antarctica", flag: "🇦🇶", gdp: 1000000000, lat: 85, lon: 0, secret: true } // Secret Country
+        ];
+
+        // Process data to add difficulty
+        const countryData = rawCountries.map((c, index) => {
+            if (c.secret) return { ...c, difficulty: 5000000 }; // Super Hard
+            const diff = Math.floor(1 + Math.pow(index / (rawCountries.length - 2), 3) * 999999);
+            return { ...c, difficulty: diff };
+        });
+
+        const achievements = [
+            { id: 'debt_crisis', name: 'Debt Crisis', desc: 'Secret Achievement', realDesc: 'Go broke (below $3,000) before conquering a single country.', icon: 'fa-chart-line-down', secret: true, check: (s) => s.conqueredCount === 0 && s.money < 3000 },
+            { id: 'internet_symbol', name: 'Internet Symbol', desc: 'Secret Achievement', realDesc: 'You found the world wide web!', icon: 'fa-globe', secret: true, check: (s) => s.secretCounters.globeClicked },
+            { id: 'copier', name: 'Copier', desc: 'Secret Achievement', realDesc: 'You typed my name!', icon: 'fa-copy', secret: true, check: (s) => s.secretCounters.copierTriggered },
+            { id: 'identity_crisis', name: 'Identity Crisis', desc: 'Secret Achievement', realDesc: 'Clicked your faction name 5 times.', icon: 'fa-id-badge', secret: true, check: (s) => s.secretCounters.factionNameClicks >= 5 },
+            { id: 'window_shopper', name: 'Window Shopper', desc: 'Secret Achievement', realDesc: 'Clicked locked countries 10 times.', icon: 'fa-shopping-bag', secret: true, check: (s) => s.secretCounters.lockedCountryClicks >= 10 },
+            { id: 'chatterbox', name: 'Chatterbox', desc: 'Secret Achievement', realDesc: 'Sent 10 messages to WarBot.', icon: 'fa-comments', secret: true, check: (s) => s.secretCounters.chatMessages >= 10 },
+            { id: 'close_call', name: 'Close Call', desc: 'Secret Achievement', realDesc: 'Win a war with less than 5 seconds remaining.', icon: 'fa-stopwatch', secret: true, check: (s) => s.secretCounters.closeCallTriggered },
+            { id: 'greedy', name: 'Greedy', desc: 'Secret Achievement', realDesc: 'Clicked your money 10 times.', icon: 'fa-hand-holding-dollar', secret: true, check: (s) => s.secretCounters.moneyClicks >= 10 },
+            // New Secrets
+            { id: 'war_reader', name: 'Tactical Reader', desc: 'Secret Achievement', realDesc: 'Clicked the Invasion text title.', icon: 'fa-book-open', secret: true, check: (s) => s.secretCounters.warTitleClicks >= 1 },
+            { id: 'pacifist_fail', name: 'Pacifist Fail', desc: 'Secret Achievement', realDesc: 'Retreated from a battle.', icon: 'fa-flag-white', secret: true, check: (s) => s.secretCounters.retreats >= 1 },
+            { id: 'barrier_breaker', name: 'Breaker', desc: 'Secret Achievement', realDesc: 'Broke 10 War Barriers.', icon: 'fa-gavel', secret: true, check: (s) => s.secretCounters.barriersBroken >= 10 },
+            { id: 'linguist', name: 'Linguist', desc: 'Secret Achievement', realDesc: 'Changed official language.', icon: 'fa-language', secret: true, check: (s) => s.secretCounters.languageChanged },
+            { id: 'polar_explorer', name: 'Polar Explorer', desc: 'Secret Achievement', realDesc: 'Discovered the secret continent.', icon: 'fa-snowflake', secret: true, check: (s) => isCountryConquered('Antarctica', s) },
+
+            // Standard
+            { id: 'first_blood', name: 'First Blood', desc: 'Conquer your first country.', icon: 'fa-flag', check: (s) => s.conqueredCount >= 1 },
+            { id: 'the_expansionist', name: 'The Expansionist', desc: 'Conquer 15 countries.', icon: 'fa-chess-rook', check: (s) => s.conqueredCount >= 15 },
+            { id: 'world_power', name: 'Superpower', desc: 'Conquer 50 countries.', icon: 'fa-globe-americas', check: (s) => s.conqueredCount >= 50 },
+            { id: 'conqueror', name: 'Conqueror', desc: 'Take over all 196 countries.', icon: 'fa-crown', check: (s) => s.conqueredCount >= rawCountries.length },
+            { id: 'target_jp', name: 'Rising Sun', desc: 'Take over Japan.', icon: 'fa-sun', check: (s) => isCountryConquered('Japan', s) },
+            { id: 'target_cn', name: 'Dragon Slayer', desc: 'Take over China.', icon: 'fa-dragon', check: (s) => isCountryConquered('China', s) },
+            { id: 'target_us', name: 'Eagle Down', desc: 'Take over the United States.', icon: 'fa-flag-usa', check: (s) => isCountryConquered('United States', s) },
+            { id: 'rich', name: 'War Profiteer', desc: 'Accumulate $1,000,000.', icon: 'fa-sack-dollar', check: (s) => s.money >= 1000000 },
+            { id: 'billionaire', name: 'Billionaire', desc: 'Accumulate $1 Billion.', icon: 'fa-money-bill-wave', check: (s) => s.money >= 1000000000 },
+            { id: 'trillionaire', name: 'Trillionaire', desc: 'Accumulate $1 Trillion.', icon: 'fa-vault', check: (s) => s.money >= 1000000000000 },
+            { id: 'defender', name: 'Iron Wall', desc: 'Reach Defense Level 10.', icon: 'fa-shield-virus', check: (s) => s.defenseLevel >= 10 },
+            { id: 'fortress', name: 'Impenetrable', desc: 'Reach Defense Level 25.', icon: 'fa-dungeon', check: (s) => s.defenseLevel >= 25 },
+            { id: 'attacker', name: 'Warlord', desc: 'Reach Attack Level 10.', icon: 'fa-meteor', check: (s) => s.attackLevel >= 10 },
+            { id: 'god_of_war', name: 'God of War', desc: 'Reach Attack Level 25.', icon: 'fa-skull-crossbones', check: (s) => s.attackLevel >= 25 },
+            { id: 'click_master', name: 'Click Master', desc: 'Perform 1,000 War Clicks.', icon: 'fa-mouse-pointer', check: (s) => s.totalClicks >= 1000 },
+            { id: 'marathon', name: 'Marathon', desc: 'Perform 10,000 War Clicks.', icon: 'fa-running', check: (s) => s.totalClicks >= 10000 },
+            { id: 'propaganda_king', name: 'Propaganda King', desc: 'Use Propaganda 5 times.', icon: 'fa-bullhorn', check: (s) => s.opsUsage.propaganda >= 5 },
+            { id: 'saboteur', name: 'Master Saboteur', desc: 'Use Sabotage 5 times.', icon: 'fa-mask', check: (s) => s.opsUsage.sabotage >= 5 },
+            { id: 'survivor', name: 'Survivor', desc: 'Defeat 5 Invasions.', icon: 'fa-first-aid', check: (s) => s.invasionAttempts >= 5 },
+            { id: 'unstoppable', name: 'Unstoppable', desc: 'Defeat 20 Invasions.', icon: 'fa-shield-alt', check: (s) => s.invasionAttempts >= 20 },
+            { id: 'veteran', name: 'Veteran', desc: 'Defeat 50 Invasions.', icon: 'fa-medal', check: (s) => s.invasionAttempts >= 50 },
+            { id: 'big_spender', name: 'Big Spender', desc: 'Spend over $10 Million on upgrades.', icon: 'fa-wallet', check: (s) => s.totalSpent >= 10000000 }
+        ];
+
+        function isCountryConquered(name, s) {
+            const idx = rawCountries.findIndex(c => c.name === name);
+            if (name === 'Antarctica') return s.antarcticaUnlocked && s.unlockedIndex > idx;
+            return idx !== -1 && s.unlockedIndex > idx;
+        }
+
+        // --- STATE ---
+        let state = {
+            factionName: "The White Flag Rebellion",
+            money: 5000,
+            defense: 0,
+            attack: 0,
+            defenseLevel: 1,
+            attackLevel: 1,
+            conqueredCount: 0,
+            unlockedIndex: 0,
+            invasionAttempts: 0,
+            invasionDuration: 300,
+            unlockedAchievements: [],
+            ops: { propaganda: 0, sabotage: false },
+            totalClicks: 0,
+            totalSpent: 0,
+            opsUsage: { propaganda: 0, sabotage: 0 },
+            antarcticaUnlocked: false,
+            secretCounters: {
+                globeClicked: false,
+                copierTriggered: false,
+                factionNameClicks: 0,
+                lockedCountryClicks: 0,
+                chatMessages: 0,
+                moneyClicks: 0,
+                closeCallTriggered: false,
+                warTitleClicks: 0,
+                retreats: 0,
+                barriersBroken: 0,
+                languageChanged: false
+            }
+        };
+
+        let invasionTimer = 300;
+        let invasionInterval, opsInterval, passiveIncomeInterval;
+        let isInvasionActive = false;
+        let isWarActive = false;
+        let warTimerInterval;
+        let warTimeRemainingForSecret = 0;
+        let warClicksNeeded = 0;
+        let warClicksCurrent = 0;
+        let currentTargetIndex = -1;
+        let barrierHoldTimer = null;
+        let barriersTriggered = []; // stores percentages triggered this war [20, 40, 60, 80]
+        let currentBarrierActive = false;
+
+        const DIVISOR = 1400000;
+
+        window.onload = function() {
+            if (localStorage.getItem('worldDomSaveV6')) {
+                document.getElementById('load-btn').disabled = false;
+                document.getElementById('load-btn').classList.remove('opacity-50');
+            } else {
+                document.getElementById('load-btn').disabled = true;
+                document.getElementById('load-btn').classList.add('opacity-50');
+            }
+            document.getElementById('chat-input').addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') sendChat();
+            });
+            populateLanguages();
+            
+            // Barrier Button Handlers
+            const barrierBtn = document.getElementById('barrier-btn');
+            barrierBtn.addEventListener('mousedown', startBarrierBreak);
+            barrierBtn.addEventListener('touchstart', startBarrierBreak);
+            barrierBtn.addEventListener('mouseup', stopBarrierBreak);
+            barrierBtn.addEventListener('touchend', stopBarrierBreak);
+            barrierBtn.addEventListener('mouseleave', stopBarrierBreak);
+
+            // Secret Handler
+            document.getElementById('war-target-name').onclick = () => {
+                state.secretCounters.warTitleClicks++;
+                checkAchievements();
+            };
+        };
+
+        function populateLanguages() {
+            const select = document.getElementById('lang-select');
+            const majorLangs = ["English (Default)", "Mandarin", "Spanish", "Hindi", "Arabic", "Portuguese", "Bengali", "Russian", "Japanese", "German", "French", "Urdu", "Indonesian", "Italian", "Turkish"];
+            
+            // Generate huge list simulation
+            // We'll add top real ones, then generate generic to hit 7164
+            let html = "";
+            majorLangs.forEach(l => html += `<option>${l}</option>`);
+            
+            // Chunked adding to prevent freezing UI on load? 
+            // 7000 strings is fast enough for modern browsers
+            for(let i=1; i <= 7149; i++) {
+                html += `<option>Dialect #${i}</option>`;
+            }
+            select.innerHTML = html;
+            
+            select.onchange = () => {
+                state.secretCounters.languageChanged = true;
+                checkAchievements();
+            }
+        }
+
+        function startGame(newGame) {
+            let previousAchievements = [];
+            if (newGame) {
+                const saved = localStorage.getItem('worldDomSaveV6');
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        if(parsed.unlockedAchievements) previousAchievements = parsed.unlockedAchievements;
+                    } catch(e) {}
+                }
+            }
+
+            if (newGame) {
+                state = {
+                    factionName: "The White Flag Rebellion",
+                    money: 5000,
+                    defense: 0,
+                    attack: 0,
+                    defenseLevel: 1,
+                    attackLevel: 1,
+                    conqueredCount: 0,
+                    unlockedIndex: 0,
+                    invasionAttempts: 0,
+                    invasionDuration: 300,
+                    unlockedAchievements: previousAchievements,
+                    ops: { propaganda: 0, sabotage: false },
+                    totalClicks: 0,
+                    totalSpent: 0,
+                    opsUsage: { propaganda: 0, sabotage: 0 },
+                    antarcticaUnlocked: false,
+                    secretCounters: {
+                        globeClicked: false, copierTriggered: false, factionNameClicks: 0, lockedCountryClicks: 0,
+                        chatMessages: 0, moneyClicks: 0, closeCallTriggered: false, warTitleClicks: 0, retreats: 0, barriersBroken: 0, languageChanged: false
+                    }
+                };
+            } else {
+                loadGame();
+            }
+
+            document.getElementById('main-menu').style.display = 'none';
+            renderCountries();
+            renderAchievements();
+            updateMapMarkers();
+            updateUI();
+            
+            clearInterval(invasionInterval);
+            clearInterval(opsInterval);
+            clearInterval(passiveIncomeInterval);
+            
+            invasionTimer = state.invasionDuration;
+            invasionInterval = setInterval(invasionLoop, 1000);
+            opsInterval = setInterval(opsLoop, 1000);
+            passiveIncomeInterval = setInterval(passiveIncomeLoop, 1000); // For Antarctica
+            
+            document.getElementById('btn-defense-click').onclick = clickDefense;
+            document.getElementById('btn-attack-click').onclick = clickAttack;
+            document.getElementById('war-click-btn').onclick = warClick;
+            
+            checkAchievements();
+            saveGame();
+        }
+
+        function clickGlobe() {
+            state.secretCounters.globeClicked = true;
+            checkAchievements();
+        }
+        function clickFactionName() {
+            state.secretCounters.factionNameClicks++;
+            checkAchievements();
+            animClick(document.getElementById('nav-faction-container'));
+        }
+        function clickMoney() {
+            state.secretCounters.moneyClicks++;
+            checkAchievements();
+            animClick(document.getElementById('nav-money'));
+        }
+        function clickLockedCountry() {
+            state.secretCounters.lockedCountryClicks++;
+            checkAchievements();
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active', 'text-white', 'text-blue-300', 'text-red-300', 'text-green-300', 'text-purple-300', 'text-yellow-300', 'text-cyan-300'));
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            
+            if(tabId === 'defense') updateUpgradeUI('defense');
+            if(tabId === 'attack') updateUpgradeUI('attack');
+            if(tabId === 'government') updateGovStats();
+            if(tabId === 'world') updateMapMarkers();
+        }
+
+        function updateMapMarkers() {
+            const container = document.getElementById('map-markers');
+            container.innerHTML = '';
+            
+            // Map dimensions roughly 1000x500 for scaling relative to lat/long
+            // SVG is w:100%, h:100%. We need to project Lat/Lon to % Top/Left.
+            // Simple Equirectangular projection: x = (lon + 180) * (width / 360), y = (90 - lat) * (height / 180)
+            
+            rawCountries.forEach((c, i) => {
+                if (c.secret && !state.antarcticaUnlocked) return; // Hide Antarctica until unlocked
+                
+                if (i < state.unlockedIndex || (c.secret && isCountryConquered('Antarctica', state))) {
+                    const el = document.createElement('div');
+                    el.className = 'map-marker';
+                    const left = (c.lon + 180) * (100 / 360);
+                    const top = (90 - c.lat) * (100 / 180);
+                    el.style.left = `${left}%`;
+                    el.style.top = `${top}%`;
+                    container.appendChild(el);
+                }
+            });
+
+            if (state.conqueredCount >= rawCountries.length) {
+                document.getElementById('claim-earth-container').classList.remove('hidden');
+            }
+        }
+
+        function claimEarth() {
+            alert("YOU HAVE CLAIMED THE EARTH! GALACTIC CONQUEST COMING SOON...");
+        }
+
+        function clickDefense(e) {
+            const gain = state.defenseLevel;
+            state.defense += gain;
+            updateUI();
+            animClick(e.target);
+            floatText(e, `+${gain} Def`, 'blue');
+            checkAchievements();
+        }
+
+        function clickAttack(e) {
+            const gain = state.attackLevel;
+            state.attack += gain;
+            updateUI();
+            animClick(e.target);
+            floatText(e, `+${gain} Atk`, 'red');
+            checkAchievements();
+        }
+
+        function upgradeStat(type) {
+            const isDef = type === 'defense';
+            const level = isDef ? state.defenseLevel : state.attackLevel;
+            const moneyCost = Math.floor(1000 * Math.pow(1.5, level));
+            const pointCost = Math.floor(50 * Math.pow(1.5, level));
+            const currentPoints = isDef ? state.defense : state.attack;
+
+            if (state.money >= moneyCost && currentPoints >= pointCost) {
+                state.money -= moneyCost;
+                state.totalSpent += moneyCost;
+                if (isDef) {
+                    state.defense -= pointCost;
+                    state.defenseLevel++;
+                } else {
+                    state.attack -= pointCost;
+                    state.attackLevel++;
+                }
+                updateUI();
+                updateUpgradeUI(type);
+                showToast(`${type.toUpperCase()} Upgraded!`);
+                checkAchievements();
+            } else {
+                showToast("Insufficient Resources!");
+            }
+        }
+
+        function updateUpgradeUI(type) {
+            const isDef = type === 'defense';
+            const level = isDef ? state.defenseLevel : state.attackLevel;
+            const moneyCost = Math.floor(1000 * Math.pow(1.5, level));
+            const pointCost = Math.floor(50 * Math.pow(1.5, level));
+            const prefix = isDef ? 'def' : 'atk';
+            document.getElementById(`${prefix}-level`).innerText = level;
+            document.getElementById(`${prefix}-ppc`).innerText = `+${level}`;
+            document.getElementById(`cost-${prefix}-money`).innerText = formatMoney(moneyCost);
+            document.getElementById(`cost-${prefix}-points`).innerText = pointCost;
+            const currentPoints = isDef ? state.defense : state.attack;
+            document.getElementById(`btn-upgrade-${type}`).disabled = (state.money < moneyCost || currentPoints < pointCost);
+        }
+
+        function activateOp(type) {
+            if (type === 'propaganda') {
+                if (state.money >= 10000) {
+                    state.money -= 10000;
+                    state.totalSpent += 10000;
+                    state.ops.propaganda = Date.now() + 30000;
+                    state.opsUsage.propaganda++;
+                    showToast("Propaganda Active!");
+                }
+            } else if (type === 'sabotage') {
+                if (state.money >= 25000) {
+                    state.money -= 25000;
+                    state.totalSpent += 25000;
+                    state.ops.sabotage = true;
+                    state.opsUsage.sabotage++;
+                    showToast("Enemy Sabotaged!");
+                }
+            }
+            updateUI();
+            checkAchievements();
+        }
+
+        function opsLoop() {
+            const propActive = state.ops.propaganda > Date.now();
+            const el = document.getElementById('ops-status');
+            if (propActive) {
+                el.classList.remove('hidden');
+                const timeLeft = Math.ceil((state.ops.propaganda - Date.now()) / 1000);
+                document.getElementById('ops-timer').innerText = timeLeft;
+            } else {
+                el.classList.add('hidden');
+            }
+        }
+
+        function passiveIncomeLoop() {
+            if (isCountryConquered('Antarctica', state)) {
+                state.money += 999000;
+                updateUI();
+            }
+        }
+
+        function checkAchievements() {
+            achievements.forEach(ach => {
+                if (!state.unlockedAchievements.includes(ach.id)) {
+                    if (ach.check(state)) {
+                        state.unlockedAchievements.push(ach.id);
+                        showAchievementPopup(ach);
+                        renderAchievements();
+                        saveGame();
+                    }
+                }
+            });
+        }
+        
+        function showAchievementPopup(ach) {
+            const popup = document.getElementById('ach-popup');
+            document.getElementById('ach-popup-icon').className = `fas ${ach.icon}`;
+            document.getElementById('ach-popup-title').innerText = ach.name;
+            const desc = ach.secret ? ach.realDesc : ach.desc;
+            document.getElementById('ach-popup-desc').innerText = desc;
+            popup.classList.add('show');
+            setTimeout(() => { popup.classList.remove('show'); }, 4000);
+        }
+
+        function renderAchievements() {
+            const grid = document.getElementById('achievements-grid');
+            grid.innerHTML = '';
+            achievements.forEach(ach => {
+                const unlocked = state.unlockedAchievements.includes(ach.id);
+                let desc = ach.desc;
+                if (ach.secret && !unlocked) desc = "????? (Secret)";
+                if (ach.secret && unlocked) desc = ach.realDesc;
+                const el = document.createElement('div');
+                el.className = `ach-card p-4 rounded-xl border flex items-center gap-4 ${unlocked ? 'ach-unlocked border-yellow-500/50' : 'ach-locked border-slate-600 bg-slate-900'}`;
+                el.innerHTML = `<div class="text-3xl ${unlocked ? 'text-yellow-400' : 'text-slate-600'}"><i class="fas ${ach.icon}"></i></div><div><h4 class="${unlocked ? 'text-yellow-400 font-bold' : 'text-slate-500'}">${ach.name}</h4><p class="text-xs text-slate-400">${desc}</p></div>`;
+                grid.appendChild(el);
+            });
+        }
+
+        function sendChat() {
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim().toLowerCase();
+            if (!msg) return;
+            state.secretCounters.chatMessages++;
+            checkAchievements();
+            addChatMsg(input.value, 'user');
+            input.value = '';
+            let response = "I'm focusing on the battlefield right now. Ask me about 'money', 'defense', 'attack', or 'ops'.";
+            if (msg === "warbot 9000") {
+                response = "Ok?";
+                state.secretCounters.copierTriggered = true;
+                checkAchievements();
+            } else {
+                if (msg.includes('money')) response = "Earn money by clicking CONQUERED countries. Use Propaganda Ops to double income.";
+                if (msg.includes('defens')) response = "Defense is required to survive enemy retaliation.";
+                if (msg.includes('attack')) response = "Attack power determines invasion ability.";
+                if (msg.includes('play')) response = "Click Defense/Attack to gain stats. Challenge countries. Win wars.";
+            }
+            setTimeout(() => addChatMsg(response, 'ai'), 500);
+        }
+
+        function addChatMsg(text, type) {
+            const div = document.createElement('div');
+            div.className = `chat-msg chat-${type} ${type === 'user' ? 'text-white' : 'text-slate-200'}`;
+            div.innerText = text;
+            const container = document.getElementById('chat-history');
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function invasionLoop() {
+            if (isWarActive || isInvasionActive) return;
+            invasionTimer--;
+            const min = Math.floor(invasionTimer / 60);
+            const sec = invasionTimer % 60;
+            document.getElementById('invasion-timer').innerText = `${min < 10 ? '0'+min : min}:${sec < 10 ? '0'+sec : sec}`;
+            if (invasionTimer <= 0) triggerInvasion();
+        }
+
+        function triggerInvasion() {
+            if (state.conqueredCount === 0) { invasionTimer = state.invasionDuration; return; }
+            isInvasionActive = true;
+            document.getElementById('vs-modal').classList.add('invasion-active');
+            document.getElementById('invasion-warning').classList.remove('hidden');
+            const randIdx = Math.floor(Math.random() * state.conqueredCount);
+            openVSModal(randIdx, true);
+        }
+
+        function getRequirements(index) {
+            const base = (index + 1);
+            let req = { money: Math.floor(countryData[index].gdp / 20000), defense: base * 15, attack: base * 15 };
+            if (state.ops.sabotage) { req.defense = Math.floor(req.defense * 0.75); req.attack = Math.floor(req.attack * 0.75); }
+            return req;
+        }
+
+        function openVSModal(index, isInvasion = false) {
+            const country = countryData[index];
+            const req = getRequirements(index);
+            document.getElementById('vs-enemy-flag').innerText = country.flag;
+            document.getElementById('vs-enemy-name').innerText = country.name;
+            document.getElementById('my-def-stat').innerText = `DEF: ${state.defense}`;
+            document.getElementById('my-atk-stat').innerText = `ATK: ${state.attack}`;
+            const btn = document.getElementById('start-war-btn');
+            
+            if (isInvasion) {
+                document.getElementById('vs-type-text').innerText = "INVADING YOU!";
+                document.getElementById('vs-type-text').className = "text-orange-500 font-bold mt-2 text-xl animate-pulse";
+                document.getElementById('vs-requirements').classList.add('hidden');
+                btn.innerText = "DEFEND TERRITORY";
+                btn.classList.remove('hidden');
+                btn.onclick = () => startWar(index, 0, true);
+                document.getElementById('cancel-war-btn').classList.add('hidden');
+            } else {
+                currentTargetIndex = index;
+                document.getElementById('vs-type-text').innerText = "DEFENDING";
+                document.getElementById('vs-type-text').className = "text-red-300 mt-2 text-xl";
+                document.getElementById('vs-requirements').classList.remove('hidden');
+                document.getElementById('req-money').innerText = `$${formatMoney(req.money)}`;
+                document.getElementById('req-def').innerText = `DEF: ${req.defense}`;
+                document.getElementById('req-atk').innerText = `ATK: ${req.attack}`;
+                document.getElementById('invasion-warning').classList.add('hidden');
+                document.getElementById('cancel-war-btn').classList.remove('hidden');
+
+                if (state.money >= req.money && state.defense >= req.defense && state.attack >= req.attack) {
+                    btn.classList.remove('hidden');
+                    btn.innerText = `PAY & ATTACK`;
+                    btn.onclick = () => startWar(index, req.money, false);
+                } else {
+                    btn.classList.add('hidden');
+                }
+            }
+            document.getElementById('vs-modal').classList.remove('hidden');
+        }
+
+        function closeVS() { 
+            document.getElementById('vs-modal').classList.add('hidden'); 
+            if(isInvasionActive) { // Treat cancel as defeat if invasion
+                 state.secretCounters.retreats++; // Actually this is for clicking 'retreat' which is hidden during invasion
+            }
+        }
+        
+        // Add retreat logic explicitly
+        document.getElementById('cancel-war-btn').onclick = () => {
+            state.secretCounters.retreats++;
+            closeVS();
+            checkAchievements();
+        }
+
+        function startWar(index, cost, isInvasion) {
+            if (!isInvasion) {
+                if (state.money < cost) return;
+                state.money -= cost;
+                state.totalSpent += cost;
+                if (state.ops.sabotage) state.ops.sabotage = false;
+            }
+            updateUI();
+            document.getElementById('vs-modal').classList.add('hidden'); // Manual close
+
+            isWarActive = true;
+            const country = countryData[index];
+            const difficultyMultiplier = 1 + (index * 0.15);
+            let baseClicks = Math.floor(20 * difficultyMultiplier);
+            let time = 30;
+
+            if (isInvasion) {
+                const invMult = 2 + (Math.random() * 2);
+                baseClicks = Math.floor(baseClicks * invMult);
+                time = 25;
+                document.getElementById('war-target-name').innerText = `DEFEND: ${country.name}`;
+            } else {
+                document.getElementById('war-target-name').innerText = `INVASION: ${country.name}`;
+            }
+            if (index > 50) time = 45;
+
+            // ANTARCTICA BOSS
+            if (country.name === 'Antarctica') {
+                baseClicks = 5000;
+                time = 120;
+                document.getElementById('war-target-name').innerText = `BOSS: ANTARCTICA`;
+            }
+
+            warClicksNeeded = baseClicks;
+            warClicksCurrent = 0;
+            
+            // RESET BARRIERS
+            barriersTriggered = [];
+            currentBarrierActive = false;
+            document.getElementById('war-barrier').classList.add('hidden');
+
+            document.getElementById('clicks-target').innerText = warClicksNeeded;
+            document.getElementById('war-modal').classList.remove('hidden');
+            
+            startWarTimer(time, isInvasion);
+        }
+
+        function startWarTimer(seconds, isInvasion) {
+            warTimeRemainingForSecret = seconds;
+            document.getElementById('war-timer').innerText = formatTime(seconds);
+            clearInterval(warTimerInterval);
+            warTimerInterval = setInterval(() => {
+                warTimeRemainingForSecret--;
+                document.getElementById('war-timer').innerText = formatTime(warTimeRemainingForSecret);
+                if (warTimeRemainingForSecret <= 0) endWar(false, isInvasion);
+            }, 1000);
+        }
+
+        function warClick() {
+            if (currentBarrierActive) return;
+
+            warClicksCurrent++;
+            state.totalClicks++;
+            document.getElementById('clicks-current').innerText = warClicksCurrent;
+            const pct = Math.min(100, (warClicksCurrent / warClicksNeeded) * 100);
+            document.getElementById('war-progress').style.width = `${pct}%`;
+            
+            // Barrier Check (20, 40, 60, 80)
+            const barriers = [20, 40, 60, 80];
+            barriers.forEach(b => {
+                if (pct >= b && !barriersTriggered.includes(b)) {
+                    triggerBarrier(b);
+                }
+            });
+
+            if (warClicksCurrent >= warClicksNeeded) endWar(true, isInvasionActive);
+        }
+
+        function triggerBarrier(pct) {
+            barriersTriggered.push(pct);
+            currentBarrierActive = true;
+            document.getElementById('war-barrier').classList.remove('hidden');
+        }
+
+        function startBarrierBreak(e) {
+            if (e.type === 'touchstart') e.preventDefault();
+            const btn = document.getElementById('barrier-btn');
+            const bar = document.getElementById('barrier-progress');
+            btn.classList.add('barrier-breaking');
+            
+            let progress = 0;
+            barrierHoldTimer = setInterval(() => {
+                progress += 5; // 20 ticks = 100ms * 20 = 2000ms... wait request said 1 sec
+                // 1 second total
+                // run every 10ms -> 100 ticks. +1 per tick.
+                // let's do simple transition
+                const w = (progress / 50) * 100; // rough visual
+                bar.style.width = w + '%';
+
+                if (progress >= 50) { // approx 1 sec if interval is 20ms
+                    breakBarrier();
+                }
+            }, 20);
+        }
+
+        function stopBarrierBreak() {
+            clearInterval(barrierHoldTimer);
+            document.getElementById('barrier-btn').classList.remove('barrier-breaking');
+            document.getElementById('barrier-progress').style.width = '0%';
+        }
+
+        function breakBarrier() {
+            stopBarrierBreak();
+            currentBarrierActive = false;
+            document.getElementById('war-barrier').classList.add('hidden');
+            state.secretCounters.barriersBroken++;
+        }
+
+        function endWar(win, isInvasion) {
+            clearInterval(warTimerInterval);
+            document.getElementById('war-modal').classList.add('hidden');
+            isWarActive = false;
+
+            if (win) {
+                if (warTimeRemainingForSecret < 5) state.secretCounters.closeCallTriggered = true;
+                if (isInvasion) {
+                    state.invasionAttempts++;
+                    state.invasionDuration = Math.floor(state.invasionDuration * 1.05);
+                    invasionTimer = state.invasionDuration;
+                    isInvasionActive = false;
+                    document.getElementById('vs-modal').classList.remove('invasion-active');
+                    showToast("INVASION REPELLED!");
+                } else {
+                    const conqueredCountry = countryData[currentTargetIndex];
+                    if (conqueredCountry.name === 'United States') {
+                        state.antarcticaUnlocked = true;
+                        showToast("SECRET SIGNAL DETECTED: SOUTH POLE");
+                    }
+                    state.conqueredCount++;
+                    state.unlockedIndex++;
+                    showToast(`${conqueredCountry.name} Conquered!`);
+                }
+            } else {
+                showToast(isInvasion ? "DEFENSE FAILED!" : "INVASION FAILED!");
+                if (isInvasion) {
+                    state.money = Math.floor(state.money * 0.8);
+                    isInvasionActive = false;
+                    invasionTimer = state.invasionDuration;
+                    document.getElementById('vs-modal').classList.remove('invasion-active');
+                }
+            }
+            renderCountries();
+            saveGame();
+            updateGovStats();
+            checkAchievements();
+            updateMapMarkers();
+        }
+
+        function renderCountries() {
+            const grid = document.getElementById('country-grid');
+            grid.innerHTML = '';
+            countryData.forEach((c, i) => {
+                // Antarctica Logic
+                if (c.secret && !state.antarcticaUnlocked) return;
+
+                const el = document.createElement('div');
+                let status = '', action = '';
+                
+                // Index Logic adjustment for secret country at end of list
+                // If it's Antarctica, it's basically the last item.
+                // unlockedIndex tracks index in raw array.
+                
+                const isConquered = i < state.unlockedIndex;
+                const isCurrent = i === state.unlockedIndex;
+
+                if (isConquered) {
+                    status = 'bg-slate-800 border-green-500/50 border';
+                    action = `harvestMoney(${i}, event)`;
+                } else if (isCurrent) {
+                    status = 'bg-slate-800 border-red-500 border-2 shadow-lg shadow-red-900/40 cursor-pointer hover:bg-slate-700';
+                    action = `openVSModal(${i})`;
+                } else {
+                    status = 'bg-slate-900 border-slate-800 border locked';
+                    action = `clickLockedCountry()`;
+                }
+
+                const req = getRequirements(i);
+                
+                // Specific Antarctica Styling
+                if (c.secret) status += " border-purple-500 shadow-purple-500/50";
+
+                el.className = `country-card p-4 rounded-xl relative flex flex-col items-center text-center ${status}`;
+                if(action) el.setAttribute('onclick', action);
+                
+                el.innerHTML = `
+                    <div class="text-4xl mb-2">${c.flag}</div>
+                    <div class="font-bold text-sm w-full truncate">${c.name}</div>
+                    <div class="text-[10px] text-slate-500">Diff: ${c.difficulty.toLocaleString()}</div>
+                    <div class="text-[10px] text-green-600 mb-1">GDP: $${formatMoneyShort(c.gdp)}</div>
+                    ${isCurrent ? `
+                        <div class="mt-2 text-[10px] grid grid-cols-3 gap-1 w-full bg-slate-900 p-1 rounded">
+                            <span class="text-green-400">$${formatMoneyShort(req.money)}</span>
+                            <span class="text-blue-400">D:${req.defense}</span>
+                            <span class="text-red-400">A:${req.attack}</span>
+                        </div>
+                    ` : ''}
+                    ${isConquered ? `<div class="text-green-500 text-xs mt-1">+$${formatMoneyShort(Math.floor((c.gdp/DIVISOR) * (state.ops.propaganda > Date.now() ? 2 : 1)))}</div>` : ''}
+                `;
+                grid.appendChild(el);
+            });
+        }
+
+        function harvestMoney(index, e) {
+            let amt = Math.floor(countryData[index].gdp / DIVISOR);
+            if (state.ops.propaganda > Date.now()) amt *= 2; 
+            state.money += amt;
+            updateUI();
+            floatText(e, `+$${formatMoneyShort(amt)}`, 'green');
+            saveGame();
+            checkAchievements();
+        }
+
+        function updateUI() {
+            document.getElementById('nav-money').innerText = '$' + formatMoney(state.money);
+            document.getElementById('display-defense').innerText = state.defense;
+            document.getElementById('display-attack').innerText = state.attack;
+            document.getElementById('nav-faction-name').innerText = state.factionName;
+            updateUpgradeUI('defense');
+            updateUpgradeUI('attack');
+        }
+
+        function updateFactionName() {
+            const val = document.getElementById('input-faction-name').value;
+            if(val.trim()) {
+                state.factionName = val;
+                updateUI();
+                showToast("Faction Renamed!");
+            }
+        }
+
+        function updateGovStats() {
+            document.getElementById('gov-money').innerText = '$' + formatMoney(state.money);
+            document.getElementById('gov-defense').innerText = state.defense;
+            document.getElementById('gov-attack').innerText = state.attack;
+            document.getElementById('gov-taken').innerText = state.conqueredCount;
+            document.getElementById('gov-attempt-tries').innerText = state.invasionAttempts;
+            document.getElementById('gov-next-invasion').innerText = formatTime(state.invasionDuration);
+        }
+
+        function formatMoney(n) { return n.toLocaleString(); }
+        function formatMoneyShort(n) {
+            if(n>=1e12) return (n/1e12).toFixed(1)+'T';
+            if(n>=1e9) return (n/1e9).toFixed(1)+'B';
+            if(n>=1e6) return (n/1e6).toFixed(1)+'M';
+            if(n>=1e3) return (n/1e3).toFixed(1)+'k';
+            return n;
+        }
+        function formatTime(s) {
+            const m = Math.floor(s/60);
+            const sec = s%60;
+            return `${m}:${sec<10?'0':''}${sec}`;
+        }
+        function floatText(e, txt, color) {
+            const el = document.createElement('div');
+            el.className = `resource-float text-${color}-400`;
+            el.innerText = txt;
+            const x = e.clientX || (e.touches && e.touches[0].clientX) || window.innerWidth/2;
+            const y = e.clientY || (e.touches && e.touches[0].clientY) || window.innerHeight/2;
+            el.style.left = (x - 20) + 'px';
+            el.style.top = (y - 20) + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 800);
+        }
+        function animClick(el) {
+            el.classList.remove('click-anim');
+            void el.offsetWidth;
+            el.classList.add('click-anim');
+        }
+        function buySupport(cost, clicks) {
+             if (state.money >= cost) {
+                state.money -= cost;
+                state.totalSpent += cost;
+                warClicksCurrent += clicks;
+                updateUI();
+            }
+        }
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            t.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 3000);
+        }
+        function saveGame() { localStorage.setItem('worldDomSaveV6', JSON.stringify(state)); }
+        function loadGame() {
+            const saved = localStorage.getItem('worldDomSaveV6');
+            if (saved) {
+                state = JSON.parse(saved);
+                if (!state.secretCounters) state.secretCounters = { globeClicked: false, copierTriggered: false, factionNameClicks: 0, lockedCountryClicks: 0, chatMessages: 0, moneyClicks: 0, closeCallTriggered: false };
+                renderCountries(); renderAchievements(); updateUI();
+            }
+        }
+    </script>
+</body>
+</html>

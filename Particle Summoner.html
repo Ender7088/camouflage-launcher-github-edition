@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Summoner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0a0a0a;
+            font-family: system-ui, -apple-system, sans-serif;
+            user-select: none;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+        }
+        .ui-panel {
+            backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .btn-active {
+            background-color: white !important;
+            color: black !important;
+        }
+        .shake {
+            animation: shake 0.2s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- UI Overlay -->
+    <div class="fixed top-6 left-6 z-10 flex flex-col gap-4">
+        <div class="ui-panel p-6 rounded-2xl shadow-2xl text-white max-w-xs">
+            <h1 class="text-2xl font-bold mb-1">Particle Summoner</h1>
+            <p class="text-gray-400 text-sm mb-4">Select a mode and interact with the void.</p>
+            
+            <div class="flex flex-col gap-2">
+                <button id="drawBtn" class="border border-blue-400/50 hover:bg-blue-400/20 text-xs font-bold py-3 px-2 rounded-lg transition-all text-blue-200 uppercase tracking-widest mb-1">
+                    ✏️ DRAW & SUMMON MODE
+                </button>
+
+                <button id="summonBtn" class="bg-white text-black font-bold py-3 px-6 rounded-lg hover:bg-gray-200 transition-all active:scale-95 mb-2">
+                    SUMMON 1000
+                </button>
+                
+                <div class="grid grid-cols-1 gap-2">
+                    <button id="explosionBtn" class="border border-red-500/50 hover:bg-red-500/20 text-xs font-bold py-2 px-2 rounded-lg transition-all text-red-200 uppercase tracking-tighter">
+                        💥 EXPLOSION MODE
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="chaosBtn" class="border border-white/20 hover:bg-white/10 text-xs font-medium py-2 px-2 rounded-lg transition-all">
+                        CHAOS MODE
+                    </button>
+                    <button id="fireworkBtn" class="border border-white/20 hover:bg-white/10 text-xs font-medium py-2 px-2 rounded-lg transition-all">
+                        FIREWORK MODE
+                    </button>
+                </div>
+                
+                <button id="trailBtn" class="border border-white/20 hover:bg-white/10 text-xs font-medium py-2 px-6 rounded-lg transition-all">
+                    TOGGLE TRAILS
+                </button>
+            </div>
+
+            <div class="mt-6 space-y-2">
+                <div class="flex justify-between text-xs text-gray-500 uppercase tracking-widest">
+                    <span>Active Dots</span>
+                    <span id="particleCount">0</span>
+                </div>
+                <div class="w-full bg-gray-800 h-1 rounded-full overflow-hidden">
+                    <div id="countBar" class="bg-white h-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const summonBtn = document.getElementById('summonBtn');
+        const chaosBtn = document.getElementById('chaosBtn');
+        const fireworkBtn = document.getElementById('fireworkBtn');
+        const explosionBtn = document.getElementById('explosionBtn');
+        const drawBtn = document.getElementById('drawBtn');
+        const trailBtn = document.getElementById('trailBtn');
+        const countDisplay = document.getElementById('particleCount');
+        const countBar = document.getElementById('countBar');
+
+        let particles = [];
+        let isChaos = false;
+        let isFirework = false;
+        let isExplosion = false;
+        let isDrawingMode = false;
+        let isMouseDown = false;
+        let showTrails = true;
+        const maxParticles = 20000;
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Particle {
+            constructor(x, y, isBurst = false, color = null) {
+                this.x = x;
+                this.y = y;
+                
+                const angle = Math.random() * Math.PI * 2;
+                let speed;
+                
+                if (isExplosion) {
+                    speed = Math.random() * 20 + 5;
+                } else if (isFirework) {
+                    speed = Math.random() * 6 + 1;
+                } else if (isDrawingMode) {
+                    speed = Math.random() * 3 + 1;
+                } else {
+                    speed = isBurst ? (Math.random() * 10 + 2) : (Math.random() * 2 + 0.5);
+                }
+                
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                
+                if (isFirework && !isBurst) {
+                    this.vy -= Math.random() * 10 + 5;
+                }
+
+                this.size = isExplosion ? (Math.random() * 3 + 1) : (Math.random() * 2 + 0.5);
+                this.alpha = 1;
+                
+                this.decay = isExplosion ? (Math.random() * 0.03 + 0.01) : 
+                             isDrawingMode ? (Math.random() * 0.01 + 0.005) :
+                             (Math.random() * 0.015 + 0.005);
+                             
+                this.gravity = isFirework ? 0.12 : (isExplosion ? 0.05 : 0);
+                
+                if (color) {
+                    this.color = color;
+                } else if (isExplosion) {
+                    const heat = Math.random() > 0.5 ? '255, 255, 255' : '255, 150, 50';
+                    this.color = `rgba(${heat}, `;
+                } else if (isFirework) {
+                    const hues = [0, 40, 180, 280, 330];
+                    this.color = `hsla(${hues[Math.floor(Math.random() * hues.length)]}, 100%, 70%, `;
+                } else if (isDrawingMode) {
+                    // Electric blue / cyan for drawing
+                    this.color = `rgba(100, 200, 255, `;
+                } else {
+                    this.color = `rgba(255, 255, 255, `;
+                }
+            }
+
+            update() {
+                this.vy += this.gravity;
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                const friction = isExplosion ? 0.94 : (isDrawingMode ? 0.99 : 0.98);
+                this.vx *= friction;
+                this.vy *= friction;
+                
+                this.alpha -= this.decay;
+            }
+
+            draw() {
+                ctx.fillStyle = this.color + this.alpha + ')';
+                ctx.beginPath();
+                if (isExplosion) {
+                    ctx.rect(this.x, this.y, this.size, this.size);
+                } else {
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                }
+                ctx.fill();
+            }
+        }
+
+        function triggerShake() {
+            canvas.classList.remove('shake');
+            void canvas.offsetWidth; 
+            canvas.classList.add('shake');
+        }
+
+        function summon(count, x, y, isAuto = false) {
+            const spawnX = x !== undefined ? x : canvas.width / 2;
+            const spawnY = y !== undefined ? y : canvas.height / 2;
+            
+            if (isExplosion && !isAuto) triggerShake();
+
+            const burstHue = isFirework ? Math.random() * 360 : null;
+            const burstColor = burstHue !== null ? `hsla(${burstHue}, 100%, 75%, ` : null;
+
+            for (let i = 0; i < count; i++) {
+                if (particles.length < maxParticles) {
+                    particles.push(new Particle(spawnX, spawnY, true, burstColor));
+                }
+            }
+            updateUI();
+        }
+
+        function updateUI() {
+            countDisplay.innerText = particles.length.toLocaleString();
+            const percentage = (particles.length / maxParticles) * 100;
+            countBar.style.width = `${percentage}%`;
+        }
+
+        function animate() {
+            ctx.fillStyle = showTrails ? 'rgba(10, 10, 10, 0.15)' : 'rgb(10, 10, 10)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (isChaos) {
+                const count = isExplosion ? 1 : (isFirework ? 2 : 15);
+                summon(count, Math.random() * canvas.width, Math.random() * canvas.height, true);
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update();
+                p.draw();
+
+                if (p.alpha <= 0 || p.y > canvas.height + 50 || p.y < -50 || p.x > canvas.width + 50 || p.x < -50) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animate);
+            if (Math.random() > 0.9) updateUI();
+        }
+
+        summonBtn.addEventListener('click', () => summon(1000));
+
+        chaosBtn.addEventListener('click', () => {
+            isChaos = !isChaos;
+            chaosBtn.classList.toggle('btn-active', isChaos);
+        });
+
+        drawBtn.addEventListener('click', () => {
+            isDrawingMode = !isDrawingMode;
+            if (isDrawingMode) {
+                isFirework = false;
+                isExplosion = false;
+                fireworkBtn.classList.remove('btn-active');
+                explosionBtn.classList.remove('btn-active');
+            }
+            drawBtn.classList.toggle('btn-active', isDrawingMode);
+        });
+
+        fireworkBtn.addEventListener('click', () => {
+            isFirework = !isFirework;
+            if (isFirework) {
+                isExplosion = false;
+                isDrawingMode = false;
+            }
+            fireworkBtn.classList.toggle('btn-active', isFirework);
+            explosionBtn.classList.remove('btn-active');
+            drawBtn.classList.remove('btn-active');
+            if (isFirework) {
+                showTrails = true;
+                trailBtn.classList.add('btn-active');
+            }
+        });
+
+        explosionBtn.addEventListener('click', () => {
+            isExplosion = !isExplosion;
+            if (isExplosion) {
+                isFirework = false;
+                isDrawingMode = false;
+            }
+            explosionBtn.classList.toggle('btn-active', isExplosion);
+            fireworkBtn.classList.remove('btn-active');
+            drawBtn.classList.remove('btn-active');
+            if (isExplosion) {
+                showTrails = true;
+                trailBtn.classList.add('btn-active');
+            }
+        });
+
+        trailBtn.addEventListener('click', () => {
+            showTrails = !showTrails;
+            trailBtn.classList.toggle('btn-active', showTrails);
+        });
+
+        trailBtn.classList.add('btn-active');
+
+        // Input Handling
+        const handleInteraction = (e) => {
+            const x = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+            const y = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+            
+            if (isDrawingMode) {
+                summon(15, x, y);
+            } else if (e.type === 'mousedown' || e.type === 'touchstart') {
+                const amount = isExplosion ? 500 : (isFirework ? 150 : 300);
+                summon(amount, x, y);
+            }
+        };
+
+        canvas.addEventListener('mousedown', (e) => {
+            isMouseDown = true;
+            handleInteraction(e);
+        });
+        canvas.addEventListener('mousemove', (e) => {
+            if (isMouseDown && isDrawingMode) handleInteraction(e);
+        });
+        window.addEventListener('mouseup', () => isMouseDown = false);
+
+        // Touch support
+        canvas.addEventListener('touchstart', (e) => {
+            isMouseDown = true;
+            handleInteraction(e);
+        });
+        canvas.addEventListener('touchmove', (e) => {
+            if (isMouseDown && isDrawingMode) handleInteraction(e);
+            e.preventDefault();
+        }, { passive: false });
+        window.addEventListener('touchend', () => isMouseDown = false);
+
+        window.onload = animate;
+    </script>
+</body>
+</html>

@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Clicker Adventure</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background-color: #f0f9ff;
+            color: #1e293b;
+            overflow: hidden;
+        }
+
+        .game-font { font-family: 'Fredoka One', cursive; }
+
+        .orb {
+            transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            filter: drop-shadow(0 0 20px rgba(56, 189, 248, 0.4));
+        }
+
+        .orb:active {
+            transform: scale(0.9);
+        }
+
+        .floating-text {
+            position: absolute;
+            pointer-events: none;
+            animation: floatUp 0.8s ease-out forwards;
+            font-weight: bold;
+            z-index: 50;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-100px); opacity: 0; }
+        }
+
+        .upgrade-card {
+            transition: all 0.2s;
+        }
+
+        .upgrade-card:disabled {
+            opacity: 0.5;
+            filter: grayscale(1);
+            cursor: not-allowed;
+        }
+
+        .upgrade-card:not(:disabled):hover {
+            transform: translateX(5px);
+            background-color: #e0f2fe;
+        }
+
+        .shop-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .shop-scroll::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+        }
+        .shop-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        
+        .tab-active {
+            border-bottom: 4px solid #0ea5e9;
+            color: #0369a1;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row">
+
+    <!-- Left Side: Main Clicking Area -->
+    <div class="flex-1 flex flex-col items-center justify-center p-4 md:p-8 relative bg-white border-r-4 border-sky-100">
+        <!-- Resource Bar -->
+        <div class="absolute top-4 flex gap-4 bg-sky-50 p-3 rounded-2xl border border-sky-100 shadow-sm">
+            <div class="flex items-center gap-1 font-bold text-slate-600"><span class="text-lg">⛓️</span> <span id="res-iron">0</span></div>
+            <div class="flex items-center gap-1 font-bold text-amber-600"><span class="text-lg">🪙</span> <span id="res-gold">0</span></div>
+            <div class="flex items-center gap-1 font-bold text-purple-600"><span class="text-lg">💎</span> <span id="res-crystal">0</span></div>
+        </div>
+
+        <div class="text-center mb-8 mt-12">
+            <h1 class="text-xl uppercase tracking-widest text-sky-400 font-bold mb-2">Total Energy</h1>
+            <div id="energy-display" class="game-font text-6xl md:text-8xl text-sky-600">0</div>
+            <div id="eps-display" class="text-lg text-slate-400 font-semibold mt-2">Generating 0.0 per sec</div>
+        </div>
+
+        <div id="click-orb" class="orb w-48 h-48 md:w-64 md:h-64 bg-gradient-to-br from-sky-400 to-blue-600 rounded-full cursor-pointer flex items-center justify-center shadow-2xl relative">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-24 h-24 text-white opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+        </div>
+
+        <div class="mt-8 text-center">
+            <p class="text-slate-400 animate-pulse italic">Tap the Orb to generate Energy!</p>
+            <p class="text-xs font-bold text-sky-500 mt-2 uppercase tracking-widest" id="click-power-display">Power: +1 per click</p>
+        </div>
+    </div>
+
+    <!-- Right Side: Navigation & Lists -->
+    <div class="w-full md:w-[450px] bg-sky-50 flex flex-col shadow-inner h-full">
+        <!-- Navigation Tabs -->
+        <div class="flex border-b border-sky-200 font-bold text-[10px] md:text-xs uppercase tracking-wider">
+            <button onclick="switchTab('shop')" id="tab-shop" class="flex-1 py-4 tab-active transition-all">Energy</button>
+            <button onclick="switchTab('mine')" id="tab-mine" class="flex-1 py-4 text-slate-400 transition-all">Mining</button>
+            <button onclick="switchTab('craft')" id="tab-craft" class="flex-1 py-4 text-slate-400 transition-all">Crafting</button>
+            <button onclick="switchTab('factory')" id="tab-factory" class="flex-1 py-4 text-slate-400 transition-all relative">
+                Factory
+                <span id="factory-lock" class="absolute top-1 right-1 text-[8px] bg-slate-200 text-slate-500 px-1 rounded">🔒 150k</span>
+            </button>
+        </div>
+
+        <!-- View Containers -->
+        <div class="flex-1 overflow-hidden p-4">
+            <!-- Shop View -->
+            <div id="view-shop" class="space-y-3 h-full overflow-y-auto pr-2 shop-scroll"></div>
+            
+            <!-- Mine View -->
+            <div id="view-mine" class="hidden space-y-3 h-full overflow-y-auto pr-2 shop-scroll"></div>
+            
+            <!-- Crafting View -->
+            <div id="view-craft" class="hidden space-y-3 h-full overflow-y-auto pr-2 shop-scroll">
+                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Equipment Lab</div>
+                <div id="craft-items-container" class="space-y-3"></div>
+                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-6 mb-2">Orb Augments (Energy + Resources)</div>
+                <div id="orb-augments-container" class="space-y-3 pb-8"></div>
+            </div>
+
+            <!-- Factory View -->
+            <div id="view-factory" class="hidden h-full overflow-hidden">
+                <div id="factory-locked-msg" class="h-full flex flex-col items-center justify-center text-center p-8">
+                    <div class="text-5xl mb-4">🏭</div>
+                    <h3 class="game-font text-xl text-slate-600 mb-2">Factory Locked</h3>
+                    <p class="text-sm text-slate-400">Collect 150,000 total energy to unlock.</p>
+                </div>
+                <div id="factory-content" class="hidden space-y-3 h-full overflow-y-auto pr-2 shop-scroll"></div>
+            </div>
+        </div>
+
+        <div class="p-4 border-t border-sky-200 flex justify-between items-center bg-white/50">
+            <button onclick="resetGame()" class="text-xs text-slate-400 hover:text-red-400 transition-colors uppercase font-bold">Reset Progress</button>
+            <div class="text-[10px] text-slate-400 uppercase tracking-tighter">Auto-saving...</div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let energy = 0;
+        let totalEnergyEver = 0;
+        let resources = { iron: 0, gold: 0, crystal: 0 };
+        let activeTab = 'shop';
+        let factoryUnlocked = false;
+
+        // Data Models
+        const shopItems = [
+            { id: 'cursor', name: 'Auto-Clicker', desc: 'Gently taps for you.', base: 15, mult: 1.15, eps: 0.5, count: 0, icon: '🖱️' },
+            { id: 'battery', name: 'Super Battery', desc: 'Increases click power.', base: 50, mult: 1.3, click: 1, count: 0, icon: '🔋' },
+            { id: 'ultra_bat', name: 'Ultra Battery', desc: 'Major click boost.', base: 500, mult: 1.35, click: 2, count: 0, icon: '⚡' },
+            { id: 'hyper_bat', name: 'Hyper Battery', desc: 'Dense power cells.', base: 2500, mult: 1.4, click: 4, count: 0, icon: '🔥' },
+            { id: 'nuclear_bat', name: 'Nuclear Battery', desc: 'Atomic force.', base: 15000, mult: 1.45, click: 8, count: 0, icon: '☢️' },
+            { id: 'crank', name: 'Hand Crank', desc: 'Mechanical power.', base: 100, mult: 1.15, eps: 1.2, count: 0, icon: '⚙️' },
+            { id: 'solar', name: 'Solar Panel', desc: 'Clean sun energy.', base: 250, mult: 1.15, eps: 3, count: 0, icon: '☀️' },
+            { id: 'solar_bat', name: 'Solar Battery', desc: 'Store the sun.', base: 100000, mult: 1.5, click: 40, count: 0, icon: '🔆' },
+            { id: 'hamster', name: 'Hamster Wheel', desc: 'Small runner.', base: 600, mult: 1.15, eps: 8, count: 0, icon: '🐹' },
+            { id: 'black_bat', name: 'Black Hole Battery', desc: 'Infinite clicks.', base: 2000000, mult: 1.6, click: 500, count: 0, icon: '🕳️' },
+            { id: 'lemon', name: 'Lemon Battery', desc: 'Science project!', base: 1200, mult: 1.15, eps: 15, count: 0, icon: '🍋' },
+            { id: 'turbine', name: 'Wind Turbine', desc: 'Catch the breeze.', base: 2500, mult: 1.15, eps: 35, count: 0, icon: '🌀' },
+            { id: 'bike', name: 'Exercise Bike', desc: 'Fitness generation.', base: 5000, mult: 1.15, eps: 75, count: 0, icon: '🚲' }
+        ];
+
+        // 25 Mines Scaling from 500 to 5 Billion
+        const mines = [];
+        const mineNames = ["Surface Pit", "Gravel Bed", "Iron Vein", "Quartz Quarry", "Deep Shaft", "Dark Grotto", "Crystal Cave", "Lava Pocket", "Core Drill", "Obsidian Mine", "Diamond Depth", "Emerald Peak", "Ancient Tunnel", "Mythic Mine", "Void Crevice", "Nebula Dig", "Stellar Quarry", "Pulsar Pit", "Quasar Cave", "Singularity Mine", "Abyssal Shaft", "Dimension Hole", "Infinity Dig", "Omni-Quarry", "Eternal Core"];
+        for(let i=0; i<25; i++) {
+            const cost = 500 * Math.pow(10, (Math.log10(5000000000/500) / 24) * i);
+            mines.push({
+                id: `mine_${i}`,
+                name: mineNames[i],
+                cost: Math.floor(cost),
+                iron: 1 + Math.floor(i * 1.5),
+                gold: i > 5 ? Math.floor(i / 2) : 0,
+                crystal: i > 12 ? Math.floor(i / 4) : 0,
+                count: 0,
+                icon: i < 8 ? '⛏️' : i < 16 ? '🏗️' : '🚀'
+            });
+        }
+
+        const factoryUpgrades = [
+            { id: 'f_automation', name: 'Smart Sensors', desc: 'Auto-Clickers +10%.', base: 150000, mult: 2.5, count: 0, icon: '👁️' },
+            { id: 'f_logistics', name: 'Speed Conveyors', desc: 'Income 5% faster.', base: 300000, mult: 2.2, count: 0, icon: '📦' },
+            { id: 'f_grid', name: 'Power Grid', desc: 'Batteries +15% efficient.', base: 750000, mult: 3.0, count: 0, icon: '🕸️' }
+        ];
+
+        const crafts = [
+            { id: 'c_drill', name: 'Hardened Drill', desc: '+50% Mine Output', cost: {iron: 100, gold: 10, crystal: 0}, count: 0, icon: '🚜' },
+            { id: 'c_magnet', name: 'Resource Magnet', desc: '+20% Chance for Gold', cost: {iron: 250, gold: 50, crystal: 5}, count: 0, icon: '🧲' },
+            { id: 'c_transmute', name: 'Energy Transmuter', desc: 'Every 100 Resources = 10k Energy', cost: {iron: 1000, gold: 500, crystal: 100}, count: 0, icon: '⚗️' }
+        ];
+
+        // New Button Click Upgrades (Orb Augments)
+        const orbAugments = [
+            { id: 'aug_iron', name: 'Iron-Tip Hammer', desc: '+5 Base Click Power', baseEnergy: 1000, mult: 1.8, costRes: {iron: 50, gold: 0, crystal: 0}, clickAdd: 5, count: 0, icon: '🔨' },
+            { id: 'aug_gold', name: 'Gilded Contacts', desc: '+25 Base Click Power', baseEnergy: 10000, mult: 1.9, costRes: {iron: 200, gold: 50, crystal: 0}, clickAdd: 25, count: 0, icon: '✨' },
+            { id: 'aug_crystal', name: 'Crystal Core', desc: '+150 Base Click Power', baseEnergy: 250000, mult: 2.1, costRes: {iron: 1000, gold: 250, crystal: 50}, clickAdd: 150, count: 0, icon: '⚛️' }
+        ];
+
+        function init() {
+            const saved = localStorage.getItem('clicker_final_save');
+            if (saved) {
+                try {
+                    const d = JSON.parse(saved);
+                    energy = Number(d.energy) || 0;
+                    totalEnergyEver = Number(d.totalEnergyEver) || 0;
+                    resources.iron = Number(d.resources?.iron) || 0;
+                    resources.gold = Number(d.resources?.gold) || 0;
+                    resources.crystal = Number(d.resources?.crystal) || 0;
+                    
+                    shopItems.forEach((u, i) => u.count = Number(d.shop?.[i]) || 0);
+                    mines.forEach((u, i) => u.count = Number(d.mines?.[i]) || 0);
+                    factoryUpgrades.forEach((u, i) => u.count = Number(d.factory?.[i]) || 0);
+                    crafts.forEach((u, i) => u.count = Number(d.crafts?.[i]) || 0);
+                    if (d.augments) {
+                        orbAugments.forEach((u, i) => u.count = Number(d.augments?.[i]) || 0);
+                    }
+                } catch(e) {
+                    console.error("Failed to load save", e);
+                }
+            }
+            renderAll();
+            updateDisplay();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function switchTab(tab) {
+            activeTab = tab;
+            ['shop', 'mine', 'craft', 'factory'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (btn) btn.className = `flex-1 py-4 transition-all ${t === tab ? 'tab-active' : 'text-slate-400'}`;
+                const view = document.getElementById(`view-${t}`);
+                if (view) view.classList.toggle('hidden', t !== tab);
+            });
+        }
+
+        function format(n) {
+            if (n === null || n === undefined || isNaN(n)) return "0";
+            if (n >= 1e9) return (n/1e9).toFixed(2) + 'B';
+            if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
+            if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+            return Math.floor(n).toLocaleString();
+        }
+
+        function getCost(item) {
+            const count = item.count || 0;
+            return Math.floor(item.base * Math.pow(item.mult || 1.15, count));
+        }
+
+        function getAugmentCost(item) {
+            const count = item.count || 0;
+            const energyCost = Math.floor(item.baseEnergy * Math.pow(item.mult, count));
+            const ironCost = Math.floor(item.costRes.iron * Math.pow(1.5, count));
+            const goldCost = Math.floor(item.costRes.gold * Math.pow(1.5, count));
+            const crystalCost = Math.floor(item.costRes.crystal * Math.pow(1.5, count));
+            return { energy: energyCost, iron: ironCost, gold: goldCost, crystal: crystalCost };
+        }
+
+        function renderAll() {
+            // Render Shop
+            document.getElementById('view-shop').innerHTML = shopItems.map((u, i) => `
+                <button onclick="buyShop(${i})" id="btn-shop-${i}" class="upgrade-card w-full text-left p-4 bg-white rounded-xl border-2 border-sky-100 flex items-center gap-3">
+                    <span class="text-2xl">${u.icon}</span>
+                    <div class="flex-1">
+                        <div class="flex justify-between"><span class="font-bold">${u.name}</span><span class="text-sky-500 font-bold">x${u.count}</span></div>
+                        <div class="text-[10px] text-slate-400">${u.desc}</div>
+                        <div class="text-xs font-bold text-emerald-500">⚡ ${format(getCost(u))}</div>
+                    </div>
+                </button>
+            `).join('');
+
+            // Render Mines
+            document.getElementById('view-mine').innerHTML = mines.map((m, i) => `
+                <button onclick="buyMine(${i})" id="btn-mine-${i}" class="upgrade-card w-full text-left p-4 bg-slate-100 rounded-xl border-2 border-slate-200 flex items-center gap-3">
+                    <span class="text-2xl">${m.icon}</span>
+                    <div class="flex-1">
+                        <div class="flex justify-between"><span class="font-bold">${m.name}</span><span class="text-slate-500 font-bold">Lvl ${m.count}</span></div>
+                        <div class="text-[9px] text-slate-500">Yield: ${m.iron} Fe / ${m.gold} Au / ${m.crystal} Cy</div>
+                        <div class="text-xs font-bold text-sky-600">⚡ ${format(m.cost * Math.pow(1.2, m.count))}</div>
+                    </div>
+                </button>
+            `).join('');
+
+            // Render Crafting (Items)
+            document.getElementById('craft-items-container').innerHTML = crafts.map((c, i) => `
+                <button onclick="buyCraft(${i})" id="btn-craft-${i}" class="upgrade-card w-full text-left p-4 bg-purple-50 rounded-xl border-2 border-purple-100 flex items-center gap-3">
+                    <span class="text-2xl">${c.icon}</span>
+                    <div class="flex-1">
+                        <div class="flex justify-between"><span class="font-bold">${c.name}</span><span class="text-purple-500 font-bold">x${c.count}</span></div>
+                        <div class="text-[10px] text-slate-400">${c.desc}</div>
+                        <div class="text-[10px] font-bold text-purple-600">
+                            ⛓️${c.cost.iron} 🪙${c.cost.gold} 💎${c.cost.crystal}
+                        </div>
+                    </div>
+                </button>
+            `).join('');
+
+            // Render Crafting (Augments)
+            document.getElementById('orb-augments-container').innerHTML = orbAugments.map((a, i) => {
+                const costs = getAugmentCost(a);
+                return `
+                <button onclick="buyAugment(${i})" id="btn-aug-${i}" class="upgrade-card w-full text-left p-4 bg-amber-50 rounded-xl border-2 border-amber-200 flex items-center gap-3">
+                    <span class="text-2xl">${a.icon}</span>
+                    <div class="flex-1">
+                        <div class="flex justify-between"><span class="font-bold">${a.name}</span><span class="text-amber-600 font-bold">Lvl ${a.count}</span></div>
+                        <div class="text-[10px] text-slate-400">${a.desc}</div>
+                        <div class="text-[10px] font-bold text-amber-700 mt-1">
+                            ⚡ ${format(costs.energy)} | ⛓️${costs.iron} | 🪙${costs.gold} | 💎${costs.crystal}
+                        </div>
+                    </div>
+                </button>
+                `;
+            }).join('');
+
+            // Render Factory
+            document.getElementById('view-factory').querySelector('#factory-content').innerHTML = factoryUpgrades.map((f, i) => `
+                <button onclick="buyFactory(${i})" id="btn-fact-${i}" class="upgrade-card w-full text-left p-4 bg-slate-800 text-white rounded-xl border-2 border-slate-700 flex items-center gap-3">
+                    <span class="text-2xl">${f.icon}</span>
+                    <div class="flex-1">
+                        <div class="flex justify-between"><span class="font-bold">${f.name}</span><span class="text-sky-300 font-bold">x${f.count}</span></div>
+                        <div class="text-xs text-emerald-400">⚡ ${format(getCost(f))}</div>
+                    </div>
+                </button>
+            `).join('');
+        }
+
+        function buyShop(i) {
+            const item = shopItems[i];
+            const cost = getCost(item);
+            if (energy >= cost) {
+                energy -= cost;
+                item.count++;
+                renderAll();
+                updateDisplay();
+                saveGame();
+            }
+        }
+
+        function buyMine(i) {
+            const m = mines[i];
+            const cost = Math.floor(m.cost * Math.pow(1.2, m.count));
+            if (energy >= cost) {
+                energy -= cost;
+                m.count++;
+                renderAll();
+                updateDisplay();
+                saveGame();
+            }
+        }
+
+        function buyCraft(i) {
+            const c = crafts[i];
+            if (resources.iron >= c.cost.iron && resources.gold >= c.cost.gold && resources.crystal >= c.cost.crystal) {
+                resources.iron -= c.cost.iron;
+                resources.gold -= c.cost.gold;
+                resources.crystal -= c.cost.crystal;
+                c.count++;
+                if (c.id === 'c_transmute') {
+                    energy += 10000;
+                    totalEnergyEver += 10000;
+                }
+                renderAll();
+                updateDisplay();
+                saveGame();
+            }
+        }
+
+        function buyAugment(i) {
+            const a = orbAugments[i];
+            const costs = getAugmentCost(a);
+            if (energy >= costs.energy && 
+                resources.iron >= costs.iron && 
+                resources.gold >= costs.gold && 
+                resources.crystal >= costs.crystal) {
+                
+                energy -= costs.energy;
+                resources.iron -= costs.iron;
+                resources.gold -= costs.gold;
+                resources.crystal -= costs.crystal;
+                
+                a.count++;
+                renderAll();
+                updateDisplay();
+                saveGame();
+            }
+        }
+
+        function buyFactory(i) {
+            const f = factoryUpgrades[i];
+            const cost = getCost(f);
+            if (energy >= cost) {
+                energy -= cost;
+                f.count++;
+                renderAll();
+                updateDisplay();
+                saveGame();
+            }
+        }
+
+        function updateDisplay() {
+            document.getElementById('energy-display').textContent = format(energy);
+            document.getElementById('res-iron').textContent = format(resources.iron);
+            document.getElementById('res-gold').textContent = format(resources.gold);
+            document.getElementById('res-crystal').textContent = format(resources.crystal);
+
+            if (!factoryUnlocked && totalEnergyEver >= 150000) {
+                factoryUnlocked = true;
+                const lock = document.getElementById('factory-lock');
+                if (lock) lock.classList.add('hidden');
+                const msg = document.getElementById('factory-locked-msg');
+                if (msg) msg.classList.add('hidden');
+                const content = document.getElementById('factory-content');
+                if (content) content.classList.remove('hidden');
+            }
+
+            // Calc Click Power
+            let clickP = 1;
+            // Add Augments (Base Power)
+            orbAugments.forEach(a => clickP += (a.count * a.clickAdd));
+            // Add Battery Bonuses
+            shopItems.forEach(u => { if(u.click) clickP += (u.count * u.click); });
+            
+            const gridItem = factoryUpgrades.find(f => f.id === 'f_grid');
+            const gridBonus = 1 + ((gridItem ? gridItem.count : 0) * 0.15);
+            clickP = Math.ceil(clickP * gridBonus);
+            document.getElementById('click-power-display').textContent = `Power: +${format(clickP)} per click`;
+
+            // Calc EPS
+            let rawEps = shopItems.reduce((acc, u) => acc + (u.eps ? u.eps * u.count : 0), 0);
+            const autoItem = factoryUpgrades.find(f => f.id === 'f_automation');
+            const autoBonus = 1 + ((autoItem ? autoItem.count : 0) * 0.1);
+            const logItem = factoryUpgrades.find(f => f.id === 'f_logistics');
+            const logBonus = 1 + ((logItem ? logItem.count : 0) * 0.05);
+            let eps = rawEps * autoBonus * logBonus;
+            document.getElementById('eps-display').textContent = `Generating ${format(eps)} per sec`;
+
+            // Update disabled buttons
+            shopItems.forEach((u, i) => {
+                const btn = document.getElementById(`btn-shop-${i}`);
+                if (btn) btn.disabled = energy < getCost(u);
+            });
+            mines.forEach((m, i) => {
+                const btn = document.getElementById(`btn-mine-${i}`);
+                if (btn) btn.disabled = energy < (m.cost * Math.pow(1.2, m.count));
+            });
+            crafts.forEach((c, i) => {
+                const btn = document.getElementById(`btn-craft-${i}`);
+                if (btn) btn.disabled = resources.iron < c.cost.iron || resources.gold < c.cost.gold || resources.crystal < c.cost.crystal;
+            });
+            orbAugments.forEach((a, i) => {
+                const btn = document.getElementById(`btn-aug-${i}`);
+                if (btn) {
+                    const costs = getAugmentCost(a);
+                    btn.disabled = energy < costs.energy || resources.iron < costs.iron || resources.gold < costs.gold || resources.crystal < costs.crystal;
+                }
+            });
+            if(factoryUnlocked) factoryUpgrades.forEach((f, i) => {
+                const btn = document.getElementById(`btn-fact-${i}`);
+                if (btn) btn.disabled = energy < getCost(f);
+            });
+        }
+
+        function handleOrbClick(e) {
+            let p = 1;
+            orbAugments.forEach(a => p += (a.count * a.clickAdd));
+            shopItems.forEach(u => { if(u.click) p += (u.count * u.click); });
+            const gridItem = factoryUpgrades.find(f => f.id === 'f_grid');
+            const gridBonus = 1 + ((gridItem ? gridItem.count : 0) * 0.15);
+            p = Math.ceil(p * gridBonus);
+            
+            energy += p;
+            totalEnergyEver += p;
+            
+            const x = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+            const y = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+            createFloatingText(x, y, `+${format(p)}`);
+            updateDisplay();
+        }
+
+        function createFloatingText(x, y, text) {
+            const div = document.createElement('div');
+            div.className = 'floating-text game-font text-xl text-sky-500';
+            div.style.left = `${x}px`;
+            div.style.top = `${y}px`;
+            div.textContent = text;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 800);
+        }
+
+        let mineTimer = 0;
+        let lastTime = performance.now();
+        function gameLoop(time) {
+            const dt = (time - lastTime) / 1000;
+            lastTime = time;
+
+            // Passive Energy
+            let rawEps = shopItems.reduce((acc, u) => acc + (u.eps ? u.eps * u.count : 0), 0);
+            const autoItem = factoryUpgrades.find(f => f.id === 'f_automation');
+            const autoBonus = 1 + ((autoItem ? autoItem.count : 0) * 0.1);
+            const logItem = factoryUpgrades.find(f => f.id === 'f_logistics');
+            const logBonus = 1 + ((logItem ? logItem.count : 0) * 0.05);
+            let eps = rawEps * autoBonus * logBonus;
+            
+            if (!isNaN(eps)) {
+                energy += eps * dt;
+                totalEnergyEver += eps * dt;
+            }
+
+            // Passive Mining (every 2 seconds)
+            mineTimer += dt;
+            if (mineTimer >= 2) {
+                mineTimer = 0;
+                const drillItem = crafts.find(c => c.id === 'c_drill');
+                const drillBonus = 1 + ((drillItem ? drillItem.count : 0) * 0.5);
+                const magnetItem = crafts.find(c => c.id === 'c_magnet');
+                const magnetBonus = 1 + ((magnetItem ? magnetItem.count : 0) * 0.2);
+                
+                mines.forEach(m => {
+                    if (m.count > 0) {
+                        resources.iron += m.iron * m.count * drillBonus;
+                        resources.gold += m.gold * m.count * drillBonus * magnetBonus;
+                        resources.crystal += m.crystal * m.count * drillBonus;
+                    }
+                });
+            }
+
+            updateDisplay();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function saveGame() {
+            const d = {
+                energy, 
+                totalEnergyEver, 
+                resources,
+                shop: shopItems.map(u => u.count),
+                mines: mines.map(m => m.count),
+                factory: factoryUpgrades.map(f => f.count),
+                crafts: crafts.map(c => c.count),
+                augments: orbAugments.map(a => a.count)
+            };
+            localStorage.setItem('clicker_final_save', JSON.stringify(d));
+        }
+
+        function resetGame() {
+            if (confirm("Reset everything?")) {
+                localStorage.removeItem('clicker_final_save');
+                location.reload();
+            }
+        }
+
+        document.getElementById('click-orb').addEventListener('mousedown', handleOrbClick);
+        document.getElementById('click-orb').addEventListener('touchstart', (e) => { e.preventDefault(); handleOrbClick(e); });
+        
+        setInterval(saveGame, 15000);
+        init();
+    </script>
+</body>
+</html>

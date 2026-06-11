@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe - AI Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #581c87 100%);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Allow scrolling on small screens */
+            overflow-y: auto;
+            padding: 20px 0;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            border-radius: 24px;
+            width: 95%;
+            max-width: 450px;
+        }
+
+        .cell {
+            aspect-ratio: 1/1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(2rem, 8vw, 3.5rem);
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            user-select: none;
+        }
+
+        .cell:hover:not(.taken) {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .cell.taken { cursor: default; }
+
+        .text-x { color: #f87171; text-shadow: 0 0 15px rgba(248, 113, 113, 0.4); }
+        .text-o { color: #60a5fa; text-shadow: 0 0 15px rgba(96, 165, 250, 0.4); }
+
+        .winning-cell {
+            background: rgba(255, 255, 255, 0.3) !important;
+            animation: celebrate 0.5s ease infinite alternate;
+        }
+
+        @keyframes celebrate {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
+        }
+
+        select {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            outline: none;
+        }
+        
+        option { background: #312e81; color: white; }
+
+        .custom-button {
+            transition: all 0.2s;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .custom-button:hover { background: rgba(255, 255, 255, 0.2); }
+        
+        .active-mode {
+            background: white !important;
+            color: #1e3a8a !important;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="glass-card p-6 md:p-8 text-white text-center">
+        <h1 class="text-3xl md:text-4xl font-bold mb-4">Tic Tac Toe</h1>
+        
+        <!-- Game Mode Selection -->
+        <div class="flex gap-2 mb-4 justify-center">
+            <button id="pvpBtn" class="custom-button active-mode px-4 py-2 rounded-full text-sm">Player vs Player</button>
+            <button id="pvaBtn" class="custom-button px-4 py-2 rounded-full text-sm">Player vs AI</button>
+        </div>
+
+        <!-- Difficulty Selection (Hidden by default) -->
+        <div id="aiControls" class="mb-6 hidden">
+            <label class="text-xs uppercase tracking-widest opacity-70 block mb-2">AI Difficulty</label>
+            <select id="difficulty" class="w-full p-2 rounded-lg text-center cursor-pointer">
+                <option value="easy">Easy (Random)</option>
+                <option value="medium">Medium (Tactical)</option>
+                <option value="impossible">Impossible (Perfect)</option>
+            </select>
+        </div>
+
+        <div class="flex justify-around mb-6 bg-white/5 p-3 rounded-2xl border border-white/10">
+            <div>
+                <p class="text-[10px] uppercase tracking-tighter opacity-60">Player X</p>
+                <p id="scoreX" class="text-xl font-bold">0</p>
+            </div>
+            <div class="h-10 w-px bg-white/10"></div>
+            <div>
+                <p class="text-[10px] uppercase tracking-tighter opacity-60">Player O (AI)</p>
+                <p id="scoreO" class="text-xl font-bold">0</p>
+            </div>
+        </div>
+
+        <div id="status" class="text-lg font-medium mb-4 h-6 text-blue-100">
+            Player X's Turn
+        </div>
+
+        <div id="board" class="grid grid-cols-3 gap-3 mb-6">
+            <div class="cell" data-index="0"></div>
+            <div class="cell" data-index="1"></div>
+            <div class="cell" data-index="2"></div>
+            <div class="cell" data-index="3"></div>
+            <div class="cell" data-index="4"></div>
+            <div class="cell" data-index="5"></div>
+            <div class="cell" data-index="6"></div>
+            <div class="cell" data-index="7"></div>
+            <div class="cell" data-index="8"></div>
+        </div>
+
+        <button id="resetBtn" class="w-full py-3 bg-white text-blue-900 rounded-xl font-bold hover:bg-blue-50 transition-colors shadow-lg">
+            New Game
+        </button>
+    </div>
+
+    <script>
+        const cells = document.querySelectorAll('.cell');
+        const statusDisplay = document.getElementById('status');
+        const resetBtn = document.getElementById('resetBtn');
+        const scoreXDisplay = document.getElementById('scoreX');
+        const scoreODisplay = document.getElementById('scoreO');
+        const pvpBtn = document.getElementById('pvpBtn');
+        const pvaBtn = document.getElementById('pvaBtn');
+        const aiControls = document.getElementById('aiControls');
+        const difficultySelect = document.getElementById('difficulty');
+
+        let gameActive = true;
+        let currentPlayer = "X";
+        let gameState = ["", "", "", "", "", "", "", "", ""];
+        let scoreX = 0;
+        let scoreO = 0;
+        let isAiMode = false;
+
+        const winLines = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],
+            [0, 4, 8], [2, 4, 6]
+        ];
+
+        // Mode Switching
+        pvpBtn.addEventListener('click', () => setMode(false));
+        pvaBtn.addEventListener('click', () => setMode(true));
+
+        function setMode(ai) {
+            isAiMode = ai;
+            pvpBtn.classList.toggle('active-mode', !ai);
+            pvaBtn.classList.toggle('active-mode', ai);
+            aiControls.classList.toggle('hidden', !ai);
+            handleRestartGame();
+        }
+
+        function handleCellClick(e) {
+            const index = parseInt(e.target.getAttribute('data-index'));
+
+            if (gameState[index] !== "" || !gameActive) return;
+            if (isAiMode && currentPlayer === "O") return; // Prevent clicking during AI turn
+
+            makeMove(index);
+
+            if (gameActive && isAiMode && currentPlayer === "O") {
+                setTimeout(aiMove, 500); // Slight delay for realism
+            }
+        }
+
+        function makeMove(index) {
+            gameState[index] = currentPlayer;
+            const cell = cells[index];
+            cell.innerText = currentPlayer;
+            cell.classList.add('taken', currentPlayer === "X" ? 'text-x' : 'text-o');
+            
+            checkResult();
+        }
+
+        function checkResult() {
+            let roundWon = false;
+            let winLine = null;
+
+            for (let condition of winLines) {
+                const [a, b, c] = condition;
+                if (gameState[a] && gameState[a] === gameState[b] && gameState[a] === gameState[c]) {
+                    roundWon = true;
+                    winLine = condition;
+                    break;
+                }
+            }
+
+            if (roundWon) {
+                statusDisplay.innerText = `Player ${currentPlayer} Wins!`;
+                gameActive = false;
+                winLine.forEach(idx => cells[idx].classList.add('winning-cell'));
+                if (currentPlayer === "X") {
+                    scoreX++;
+                    scoreXDisplay.innerText = scoreX;
+                } else {
+                    scoreO++;
+                    scoreODisplay.innerText = scoreO;
+                }
+                return;
+            }
+
+            if (!gameState.includes("")) {
+                statusDisplay.innerText = "Draw!";
+                gameActive = false;
+                return;
+            }
+
+            currentPlayer = currentPlayer === "X" ? "O" : "X";
+            statusDisplay.innerText = `Player ${currentPlayer}'s Turn`;
+        }
+
+        // --- AI LOGIC ---
+
+        function aiMove() {
+            const diff = difficultySelect.value;
+            let move;
+
+            if (diff === 'easy') {
+                move = getRandomMove();
+            } else if (diff === 'medium') {
+                move = getMediumMove();
+            } else {
+                move = getBestMove();
+            }
+
+            if (move !== null) makeMove(move);
+        }
+
+        function getRandomMove() {
+            const available = gameState.map((v, i) => v === "" ? i : null).filter(v => v !== null);
+            return available[Math.floor(Math.random() * available.length)];
+        }
+
+        function getMediumMove() {
+            // 1. Try to win
+            for (let line of winLines) {
+                const move = checkTwoThirds(line, "O");
+                if (move !== null) return move;
+            }
+            // 2. Block player
+            for (let line of winLines) {
+                const move = checkTwoThirds(line, "X");
+                if (move !== null) return move;
+            }
+            // 3. Else random
+            return getRandomMove();
+        }
+
+        function checkTwoThirds(line, player) {
+            const vals = line.map(idx => gameState[idx]);
+            const count = vals.filter(v => v === player).length;
+            const empty = vals.filter(v => v === "").length;
+            if (count === 2 && empty === 1) {
+                return line[vals.indexOf("")];
+            }
+            return null;
+        }
+
+        // Minimax for Impossible Difficulty
+        function getBestMove() {
+            let bestScore = -Infinity;
+            let move = null;
+            for (let i = 0; i < 9; i++) {
+                if (gameState[i] === "") {
+                    gameState[i] = "O";
+                    let score = minimax(gameState, 0, false);
+                    gameState[i] = "";
+                    if (score > bestScore) {
+                        bestScore = score;
+                        move = i;
+                    }
+                }
+            }
+            return move;
+        }
+
+        function minimax(board, depth, isMaximizing) {
+            const scores = { X: -10, O: 10, draw: 0 };
+            const winner = checkWinnerForMinimax();
+            if (winner) return scores[winner];
+
+            if (isMaximizing) {
+                let bestScore = -Infinity;
+                for (let i = 0; i < 9; i++) {
+                    if (board[i] === "") {
+                        board[i] = "O";
+                        let score = minimax(board, depth + 1, false);
+                        board[i] = "";
+                        bestScore = Math.max(score, bestScore);
+                    }
+                }
+                return bestScore;
+            } else {
+                let bestScore = Infinity;
+                for (let i = 0; i < 9; i++) {
+                    if (board[i] === "") {
+                        board[i] = "X";
+                        let score = minimax(board, depth + 1, true);
+                        board[i] = "";
+                        bestScore = Math.min(score, bestScore);
+                    }
+                }
+                return bestScore;
+            }
+        }
+
+        function checkWinnerForMinimax() {
+            for (let [a, b, c] of winLines) {
+                if (gameState[a] && gameState[a] === gameState[b] && gameState[a] === gameState[c]) {
+                    return gameState[a];
+                }
+            }
+            if (!gameState.includes("")) return "draw";
+            return null;
+        }
+
+        function handleRestartGame() {
+            gameActive = true;
+            currentPlayer = "X";
+            gameState = ["", "", "", "", "", "", "", "", ""];
+            statusDisplay.innerText = "Player X's Turn";
+            cells.forEach(cell => {
+                cell.innerText = "";
+                cell.className = "cell";
+            });
+        }
+
+        cells.forEach(cell => cell.addEventListener('click', handleCellClick));
+        resetBtn.addEventListener('click', handleRestartGame);
+    </script>
+</body>
+</html>

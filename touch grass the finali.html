@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Touch Grass Simulator - Divine Peace Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0; overflow: hidden; background-color: #87CEEB;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none; user-select: none;
+        }
+        #game-container { position: relative; width: 100vw; height: 100vh; }
+        canvas { display: block; }
+        
+        .ui-panel {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(255, 255, 255, 0.9); padding: 12px 20px;
+            border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            pointer-events: none; min-width: 180px; z-index: 100;
+        }
+
+        .shop-panel {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(255, 255, 255, 0.95); padding: 15px;
+            border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            width: 280px; display: flex; flex-direction: column; z-index: 100;
+        }
+        
+        #shop-container { overflow-y: auto; max-height: 230px; padding-right: 5px; }
+        #shop-container::-webkit-scrollbar { width: 6px; }
+        #shop-container::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        #shop-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        #shop-container::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .status-bar { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; margin-top: 5px; overflow: hidden; }
+        #health-fill { height: 100%; width: 20%; background: linear-gradient(90deg, #4ade80, #22c55e); transition: width 0.3s ease; }
+        
+        .shop-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 8px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; cursor: pointer; transition: all 0.2s; }
+        .shop-item:hover { background: #f1f5f9; transform: translateY(-2px); }
+        .shop-item:active { transform: scale(0.98); }
+        .shop-item.disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+        
+        .prestige-btn { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: white; text-align: center; padding: 12px; border-radius: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3); transition: all 0.2s; display: none; }
+        .prestige-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(245, 158, 11, 0.4); }
+        .prestige-btn:active { transform: scale(0.98); }
+        
+        .particle { position: absolute; pointer-events: none; border-radius: 50%; z-index: 10; }
+        
+        #notification {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: #ef4444; color: white; padding: 12px 24px; border-radius: 30px;
+            font-weight: bold; font-size: 1rem; opacity: 0; transition: opacity 0.3s;
+            pointer-events: none; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.3); text-align: center;
+        }
+        #prestige-badge { display: none; background: #f59e0b; color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 8px; vertical-align: middle; }
+        #power-status { font-size: 0.7rem; font-weight: bold; color: #8b5cf6; display: none; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }
+
+        #action-container {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 15px; z-index: 200;
+        }
+        .action-btn {
+            display: none; padding: 15px 30px; border-radius: 15px; font-weight: bold;
+            font-size: 1.1rem; color: white; border: none; cursor: pointer;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.3); transition: transform 0.1s;
+        }
+        .action-btn:active { transform: scale(0.95); }
+        #btn-t { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        #btn-e { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div class="ui-panel" id="ui-panel">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="text-xl">🌿</span>
+            <span id="points-display" class="font-bold text-green-700 text-lg">0</span>
+            <span id="prestige-badge">⭐ x1</span>
+        </div>
+        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Mental Sanity</div>
+        <div class="status-bar"><div id="health-fill"></div></div>
+        <div id="sanity-status" class="text-[10px] mt-1 text-gray-500 italic">Starting your journey...</div>
+        <div id="power-status">✨ 'E' UNLOCKED ✨</div>
+    </div>
+
+    <div id="notification">Notification message</div>
+
+    <div class="shop-panel" id="shop-panel">
+        <h3 class="font-bold text-gray-700 mb-3 border-bottom pb-1 flex items-center justify-between shrink-0">
+            Garden Shop <span class="text-xs font-normal text-gray-400">Upgrades</span>
+        </h3>
+        <div id="shop-container"></div>
+        <div id="prestige-btn" class="prestige-btn" onclick="triggerPrestige()">
+            ✨ Ascend (1M Pts) ✨
+            <div class="text-[10px] font-normal mt-1">Reset for permanent 2x boost</div>
+        </div>
+    </div>
+
+    <div id="action-container">
+        <button id="btn-t" class="action-btn">THROW BOOK (T)</button>
+        <button id="btn-e" class="action-btn">SUMMON TEACHER (E)</button>
+    </div>
+    
+    <canvas id="grassCanvas"></canvas>
+</div>
+
+<script>
+    const canvas = document.getElementById('grassCanvas');
+    const ctx = canvas.getContext('2d');
+    const healthFill = document.getElementById('health-fill');
+    const pointsDisplay = document.getElementById('points-display');
+    const shopContainer = document.getElementById('shop-container');
+    const sanityStatus = document.getElementById('sanity-status');
+    const powerStatus = document.getElementById('power-status');
+    const notification = document.getElementById('notification');
+    const prestigeBtn = document.getElementById('prestige-btn');
+    const prestigeBadge = document.getElementById('prestige-badge');
+    const uiPanel = document.getElementById('ui-panel');
+    const shopPanel = document.getElementById('shop-panel');
+    const btnT = document.getElementById('btn-t');
+    const btnE = document.getElementById('btn-e');
+
+    const imgGamer = new Image(); imgGamer.src = 'gamer.jpeg';
+    const imgBook = new Image(); imgBook.src = 'book.jpeg';
+    const imgVeganTeacher = new Image(); imgVeganTeacher.src = 'vegan Karen teacher.jpeg';
+
+    let width, height;
+    let blades = [];
+    let mouse = { x: -1000, y: -1000, active: false };
+    
+    let state = {
+        points: 0, sanity: 20, grassCount: 80, pointMultiplier: 1,
+        autoPoints: 0, interactionRadius: 100, sanityDecay: 0.015, prestigeLevel: 0
+    };
+
+    const MAX_SANITY = 100;
+    const PRESTIGE_COST = 1000000; 
+    const VEGAN_POWER_REQ = 1000000000;
+
+    let punishment = { active: false, timeLeft: 0 };
+    let roamingGamers = []; 
+    let spawnTimer = 0;
+    let targetSpawnTime = 10;
+    let bookProjectile = { active: false, x: 0, y: 0, target: null, angle: 0 };
+    let veganTeacher = { active: false, x: -300, y: 0, permanent: false };
+
+    function formatNumber(num) { 
+        return Math.floor(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); 
+    }
+
+    const shopItems = [
+        { id: '1', name: 'Super Fertilizer', baseCost: 50, cost: 50, basePower: 20, power: 20, icon: '🌱', 
+          getDesc: (i) => `+${formatNumber(i.power)} grass blades`, 
+          onBuy: (i) => { state.grassCount += i.power; initGrass(); i.power = Math.floor(i.power * 1.5); } },
+        { id: '2', name: 'Better Gloves', baseCost: 150, cost: 150, basePower: 2, power: 2, icon: '🧤', 
+          getDesc: (i) => `${formatNumber(i.power)}x points per touch`, 
+          onBuy: (i) => { state.pointMultiplier *= i.power; i.power += 1; } },
+        { id: '3', name: 'Auto Sprinkler', baseCost: 300, cost: 300, basePower: 1, power: 1, icon: '🚿', 
+          getDesc: (i) => `+${formatNumber(i.power)} pts/sec`, 
+          onBuy: (i) => { state.autoPoints += i.power; i.power = Math.ceil(i.power * 1.5); } },
+        { id: '4', name: 'Long Arms', baseCost: 500, cost: 500, basePower: 1.3, power: 1.3, icon: '📏', 
+          getDesc: (i) => `+${Math.round((i.power-1)*100)}% touch range`, 
+          onBuy: (i) => { state.interactionRadius *= i.power; i.power += 0.1; } },
+        { id: '5', name: 'Rain Cloud', baseCost: 1200, cost: 1200, basePower: 5, power: 5, icon: '🌧️', 
+          getDesc: (i) => `+${formatNumber(i.power)} pts/sec`, 
+          onBuy: (i) => { state.autoPoints += i.power; i.power = Math.ceil(i.power * 1.5); } },
+        { id: '6', name: 'Zen Garden', baseCost: 2500, cost: 2500, basePower: 0.6, power: 0.6, icon: '🧘', 
+          getDesc: (i) => `Decay drops by ${Math.round((1-i.power)*100)}%`, 
+          onBuy: (i) => { state.sanityDecay *= i.power; i.power = Math.max(0.1, i.power - 0.05); } },
+        { id: '7', name: 'Golden Gloves', baseCost: 5000, cost: 5000, basePower: 5, power: 5, icon: '✨', 
+          getDesc: (i) => `${formatNumber(i.power)}x points per touch`, 
+          onBuy: (i) => { state.pointMultiplier *= i.power; i.power += 2; } },
+        { id: '8', name: 'Mega Lawn', baseCost: 10000, cost: 10000, basePower: 100, power: 100, icon: '🌿', 
+          getDesc: (i) => `+${formatNumber(i.power)} grass blades`, 
+          onBuy: (i) => { state.grassCount += i.power; initGrass(); i.power = Math.floor(i.power * 1.5); } },
+        { id: '9', name: 'Industrial Sprinkler', baseCost: 25000, cost: 25000, basePower: 25, power: 25, icon: '🏭', 
+          getDesc: (i) => `+${formatNumber(i.power)} pts/sec`, 
+          onBuy: (i) => { state.autoPoints += i.power; i.power = Math.ceil(i.power * 1.5); } },
+        { id: '10', name: 'Diamond Gloves', baseCost: 50000, cost: 50000, basePower: 10, power: 10, icon: '💎', 
+          getDesc: (i) => `${formatNumber(i.power)}x points per touch`, 
+          onBuy: (i) => { state.pointMultiplier *= i.power; i.power += 5; } },
+        { id: '11', name: 'Telekinesis', baseCost: 75000, cost: 75000, basePower: 1.5, power: 1.5, icon: '🧠', 
+          getDesc: (i) => `+${Math.round((i.power-1)*100)}% touch range`, 
+          onBuy: (i) => { state.interactionRadius *= i.power; i.power += 0.2; } },
+        { id: '12', name: 'Quantum Grass', baseCost: 100000, cost: 100000, basePower: 250, power: 250, icon: '⚛️', 
+          getDesc: (i) => `+${formatNumber(i.power)} grass blades`, 
+          onBuy: (i) => { state.grassCount += i.power; initGrass(); i.power = Math.floor(i.power * 1.5); } },
+        { id: '13', name: 'Virtual Therapist', baseCost: 150000, cost: 150000, basePower: 0.3, power: 0.3, icon: '🛋️', 
+          getDesc: (i) => `Decay drops by ${Math.round((1-i.power)*100)}%`, 
+          onBuy: (i) => { state.sanityDecay *= i.power; i.power = Math.max(0.05, i.power - 0.05); } },
+        { id: '14', name: 'Friendly Mower', baseCost: 250000, cost: 250000, basePower: 100, power: 100, icon: '🤖', 
+          getDesc: (i) => `+${formatNumber(i.power)} pts/sec`, 
+          onBuy: (i) => { state.autoPoints += i.power; i.power = Math.ceil(i.power * 1.5); } },
+        { id: '15', name: 'Grass Whisperer', baseCost: 500000, cost: 500000, basePower: 25, power: 25, icon: '🗣️', 
+          getDesc: (i) => `${formatNumber(i.power)}x points per touch`, 
+          onBuy: (i) => { state.pointMultiplier *= i.power; i.power += 10; } },
+        { id: '16', name: 'Planetary Lawn', baseCost: 1000000, cost: 1000000, basePower: 500, power: 500, icon: '🌍', 
+          getDesc: (i) => `+${formatNumber(i.power)} grass blades`, 
+          onBuy: (i) => { state.grassCount += i.power; initGrass(); i.power = Math.floor(i.power * 1.5); } },
+        { id: '17', name: 'Cloud Seeding', baseCost: 2500000, cost: 2500000, basePower: 500, power: 500, icon: '💸', 
+          getDesc: (i) => `+${formatNumber(i.power)} pts/sec`, 
+          onBuy: (i) => { state.autoPoints += i.power; i.power = Math.ceil(i.power * 1.5); } },
+        { id: '18', name: 'Nirvana State', baseCost: 5000000, cost: 5000000, basePower: 0.1, power: 0.1, icon: '👁️', 
+          getDesc: (i) => `Decay drops by ${Math.round((1-i.power)*100)}%`, 
+          onBuy: (i) => { state.sanityDecay *= i.power; i.power = Math.max(0.01, i.power - 0.02); } },
+        { id: '19', name: 'Galactic Pasture', baseCost: 10000000, cost: 10000000, basePower: 1000, power: 1000, icon: '🌌', 
+          getDesc: (i) => `+${formatNumber(i.power)} grass blades`, 
+          onBuy: (i) => { state.grassCount += i.power; initGrass(); i.power = Math.floor(i.power * 1.5); } },
+        { id: '20', name: 'Hand of God', baseCost: 50000000, cost: 50000000, basePower: 100, power: 100, icon: '🙌', 
+          getDesc: (i) => `${formatNumber(i.power)}x points per touch`, 
+          onBuy: (i) => { state.pointMultiplier *= i.power; i.power += 50; } }
+    ];
+
+    class GrassBlade {
+        constructor() { this.init(); }
+        init() {
+            this.x = Math.random() * width; this.y = height;
+            this.height = 80 + Math.random() * 120;
+            this.angle = 0; this.targetAngle = 0;
+            const hues = [90, 100, 120, 145];
+            this.color = `hsl(${hues[Math.floor(Math.random() * hues.length)]}, ${45 + Math.random() * 35}%, ${25 + Math.random() * 25}%)`;
+            this.width = 3 + Math.random() * 4; this.swayOffset = Math.random() * Math.PI * 2;
+        }
+        update(time) {
+            if (punishment.active) return;
+            const sway = Math.sin(time * 0.002 + this.swayOffset) * 0.12;
+            const dx = this.x - mouse.x; const dy = (height - this.height/2) - mouse.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+
+            if (dist < state.interactionRadius) {
+                const force = (state.interactionRadius - dist) / state.interactionRadius;
+                this.targetAngle = (dx > 0 ? 1 : -1) * force * 1.5;
+                if (mouse.active) {
+                    addPoints((0.05 * state.pointMultiplier) * Math.pow(2, state.prestigeLevel));
+                    increaseSanity(0.08);
+                    if (Math.random() > 0.92) createParticle(this.x, height - this.height);
+                }
+            } else { this.targetAngle = sway; }
+            this.angle += (this.targetAngle - this.angle) * 0.1;
+        }
+        draw() {
+            ctx.save(); ctx.translate(this.x, this.y); ctx.beginPath(); ctx.moveTo(0, 0);
+            const bend = this.angle * this.height;
+            ctx.quadraticCurveTo(bend * 0.5, -this.height * 0.5, bend, -this.height);
+            ctx.lineWidth = this.width; ctx.lineCap = 'round'; ctx.strokeStyle = this.color; ctx.stroke(); ctx.restore();
+        }
+    }
+
+    function initGrass() { blades = []; for (let i = 0; i < state.grassCount; i++) blades.push(new GrassBlade()); }
+    function resize() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; initGrass(); }
+
+    function createParticle(x, y) {
+        if (punishment.active) return;
+        const p = document.createElement('div'); p.className = 'particle';
+        const size = 3 + Math.random() * 5;
+        p.style.width = size + 'px'; p.style.height = size + 'px';
+        p.style.left = x + 'px'; p.style.top = (y + 50) + 'px'; p.style.backgroundColor = '#86efac';
+        document.getElementById('game-container').appendChild(p);
+        p.animate([ { transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${(Math.random()-0.5)*60}px, -80px) scale(0)`, opacity: 0 } ], { duration: 800, easing: 'ease-out' }).onfinish = () => p.remove();
+    }
+
+    function addPoints(amt) {
+        if (punishment.active) return;
+        state.points += amt;
+        pointsDisplay.innerText = formatNumber(state.points);
+        if (state.points >= PRESTIGE_COST && prestigeBtn.style.display !== 'block') prestigeBtn.style.display = 'block';
+        if (state.points >= VEGAN_POWER_REQ && !veganTeacher.permanent) {
+            powerStatus.style.display = 'block';
+            btnE.style.display = 'block';
+        }
+        updateShop();
+    }
+
+    function increaseSanity(amt) {
+        if (punishment.active) return;
+        state.sanity = Math.min(MAX_SANITY, state.sanity + amt);
+        healthFill.style.width = Math.max(0, state.sanity) + '%';
+        if (state.sanity > 90) sanityStatus.innerText = "Ultimate Peace";
+        else if (state.sanity > 60) sanityStatus.innerText = "Feeling Better";
+        else if (state.sanity > 30) sanityStatus.innerText = "Recovering...";
+        else sanityStatus.innerText = "Needs Nature";
+    }
+
+    function showNotification(msg) {
+        notification.innerText = msg; notification.style.opacity = 1;
+        setTimeout(() => notification.style.opacity = 0, 3000);
+    }
+
+    function triggerPunishment() {
+        bookProjectile.active = false; veganTeacher.active = false; veganTeacher.permanent = false;
+        punishment.active = true; punishment.timeLeft = 120;
+        uiPanel.style.display = 'none'; shopPanel.style.display = 'none'; btnT.style.display = 'none'; btnE.style.display = 'none';
+        state.points = 0; state.sanity = 0; state.grassCount = 80; state.pointMultiplier = 1;
+        state.autoPoints = 0; state.interactionRadius = 100; state.sanityDecay = 0.015; state.prestigeLevel = 0;
+        shopItems.forEach(item => { item.cost = item.baseCost; item.power = item.basePower; });
+        prestigeBtn.style.display = 'none'; prestigeBadge.style.display = 'none'; powerStatus.style.display = 'none';
+        roamingGamers = []; spawnTimer = 0;
+        initGrass(); pointsDisplay.innerText = "0"; healthFill.style.width = '0%'; sanityStatus.innerText = "Brain Rot Complete"; updateShop();
+        showNotification("YOU FAILED. ALL UPGRADES LOST. PLAY VIDEO GAMES FOR 120 SECONDS.");
+    }
+
+    function triggerPrestige() {
+        if (state.points >= PRESTIGE_COST && !punishment.active) {
+            state.prestigeLevel++; state.points = 0; state.sanity = 20; state.grassCount = 80; state.pointMultiplier = 1;
+            state.autoPoints = 0; state.interactionRadius = 100; state.sanityDecay = 0.015;
+            shopItems.forEach(item => { item.cost = item.baseCost; item.power = item.basePower; });
+            prestigeBtn.style.display = 'none'; powerStatus.style.display = 'none'; btnE.style.display = 'none';
+            prestigeBadge.style.display = 'inline-block'; prestigeBadge.innerText = `⭐ x${Math.pow(2, state.prestigeLevel)}`;
+            initGrass(); addPoints(0); updateShop();
+            showNotification(`Ascension Level ${state.prestigeLevel}! Global 2x Multiplier Applied.`);
+        }
+    }
+
+    function updateShop() {
+        shopContainer.innerHTML = '';
+        shopItems.forEach(item => {
+            const el = document.createElement('div');
+            const canAfford = state.points >= item.cost && !punishment.active;
+            el.className = `shop-item ${canAfford ? '' : 'disabled'}`;
+            el.innerHTML = `<div class="flex items-center gap-3"><span class="text-2xl">${item.icon}</span><div><div class="text-xs font-bold text-gray-700">${item.name}</div><div class="text-[9px] text-gray-500">${item.getDesc(item)}</div></div></div><div class="text-right"><div class="text-xs font-bold text-green-600">${formatNumber(item.cost)}</div><div class="text-[8px] uppercase text-gray-400">Points</div></div>`;
+            el.onclick = () => { if (state.points >= item.cost && !punishment.active) { state.points -= item.cost; item.cost = Math.floor(item.cost * 1.5); item.onBuy(item); addPoints(0); } };
+            shopContainer.appendChild(el);
+        });
+    }
+
+    setInterval(() => { if (state.autoPoints > 0 && !punishment.active) addPoints(state.autoPoints * Math.pow(2, state.prestigeLevel)); }, 1000);
+
+    function doThrowBook() {
+        if (roamingGamers.length > 0 && !bookProjectile.active && !punishment.active) {
+            let targetGamer = roamingGamers[0];
+            bookProjectile.active = true; bookProjectile.x = width / 2; bookProjectile.y = height;
+            bookProjectile.target = targetGamer; bookProjectile.angle = 0;
+            btnT.style.display = 'none';
+        }
+    }
+
+    function doSummonTeacher() {
+        if (state.points >= VEGAN_POWER_REQ && !veganTeacher.active && !punishment.active) {
+            veganTeacher.active = true; 
+            veganTeacher.permanent = true;
+            veganTeacher.x = (width / 2) - 100; 
+            veganTeacher.y = 20;
+            roamingGamers = [];
+            btnE.style.display = 'none';
+            powerStatus.style.display = 'none';
+            showNotification("DIVINE PROTECTION: The Vegan Teacher brings eternal peace!");
+        }
+    }
+
+    btnT.addEventListener('click', doThrowBook);
+    btnE.addEventListener('click', doSummonTeacher);
+    window.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+        if (key === 't') doThrowBook();
+        if (key === 'e') doSummonTeacher();
+    });
+
+    let lastTime = performance.now();
+
+    function animate(time) {
+        if (!time) time = performance.now();
+        let dt = (time - lastTime) / 1000; if (dt > 0.1) dt = 0.1; lastTime = time;
+        ctx.clearRect(0, 0, width, height);
+        
+        if (punishment.active) {
+            punishment.timeLeft -= dt;
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, width, height);
+            ctx.fillStyle = '#ef4444'; ctx.textAlign = 'center'; ctx.font = 'bold 36px Arial'; ctx.fillText("🎮 FORCED TO PLAY VIDEO GAMES 🎮", width/2, height/2 - 40);
+            ctx.fillStyle = 'white'; ctx.font = '24px Arial'; ctx.fillText(`All Progress Erased. Time Remaining: ${Math.ceil(punishment.timeLeft)}s`, width/2, height/2 + 20);
+            if (punishment.timeLeft <= 0) { punishment.active = false; uiPanel.style.display = 'block'; shopPanel.style.display = 'flex'; showNotification("The 120 seconds are up... You may touch grass again."); }
+            requestAnimationFrame(animate); return;
+        }
+
+        const grad = ctx.createLinearGradient(0, height - 120, 0, height); grad.addColorStop(0, '#87CEEB'); grad.addColorStop(1, '#1e3a1a');
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, width, height);
+
+        blades.forEach(blade => { blade.update(time); blade.draw(); });
+
+        if (!mouse.active && state.sanity > 2) { 
+            state.sanity -= state.sanityDecay; 
+            healthFill.style.width = Math.max(0, state.sanity) + '%'; 
+        }
+
+        // SPAWN LOGIC (Blocked if Teacher is Permanent)
+        if (!veganTeacher.permanent) {
+            spawnTimer += dt;
+            if (spawnTimer >= targetSpawnTime && roamingGamers.length < 3) {
+                spawnTimer = 0;
+                targetSpawnTime = 10 + Math.random() * 5;
+                roamingGamers.push({ 
+                    x: Math.random() * (width - 150) + 50, y: height - 200 - Math.random() * 100, 
+                    speed: (Math.random() > 0.5 ? 1 : -1) * (1.5 + Math.random()), size: 80, timeLeft: 6.0 
+                });
+                showNotification("⚠️ A GAMER APPEARED! THROW A BOOK (T)! ⚠️");
+            }
+        }
+
+        // UPDATE GAMERS
+        for (let i = roamingGamers.length - 1; i >= 0; i--) {
+            let rg = roamingGamers[i]; 
+            rg.x += rg.speed;
+            if (rg.x <= 0 || rg.x + rg.size >= width) rg.speed *= -1;
+            let isBeingTargeted = (bookProjectile.active && bookProjectile.target === rg);
+            if (!isBeingTargeted) rg.timeLeft -= dt;
+            if (imgGamer.complete && imgGamer.naturalWidth !== 0) ctx.drawImage(imgGamer, rg.x, rg.y, rg.size, rg.size);
+            else { ctx.fillStyle = 'purple'; ctx.fillRect(rg.x, rg.y, rg.size, rg.size); }
+            ctx.fillStyle = 'red'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center'; ctx.fillText(rg.timeLeft.toFixed(1) + "s", rg.x + rg.size/2, rg.y - 10);
+            state.sanity -= 0.05; 
+            if (state.sanity < 0) state.sanity = 0;
+            if (rg.timeLeft <= 0) { triggerPunishment(); break; }
+        }
+
+        if (roamingGamers.length > 0 && !bookProjectile.active && !punishment.active) btnT.style.display = 'block';
+        else btnT.style.display = 'none';
+
+        // BOOK THROW LOGIC (Safety added for missing target)
+        if (bookProjectile.active) {
+            if (!roamingGamers.includes(bookProjectile.target)) {
+                bookProjectile.active = false;
+            } else {
+                let dx = (bookProjectile.target.x + bookProjectile.target.size/2) - bookProjectile.x;
+                let dy = (bookProjectile.target.y + bookProjectile.target.size/2) - bookProjectile.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 30) { 
+                    roamingGamers = roamingGamers.filter(g => g !== bookProjectile.target);
+                    bookProjectile.active = false;
+                    addPoints(1000 * Math.pow(2, state.prestigeLevel));
+                    showNotification("Gamer defeated! Peace protected.");
+                } else {
+                    bookProjectile.x += (dx / dist) * 25; 
+                    bookProjectile.y += (dy / dist) * 25; 
+                    bookProjectile.angle += 0.3; 
+                }
+                ctx.save(); ctx.translate(bookProjectile.x, bookProjectile.y); ctx.rotate(bookProjectile.angle);
+                if (imgBook.complete && imgBook.naturalWidth !== 0) ctx.drawImage(imgBook, -30, -30, 60, 60);
+                else { ctx.fillStyle = 'brown'; ctx.fillRect(-25, -35, 50, 70); }
+                ctx.restore();
+            }
+        }
+
+        // VEGAN TEACHER & PEACE AURA
+        if (veganTeacher.active) {
+            if (veganTeacher.permanent) {
+                veganTeacher.x = (width / 2) - 100;
+                veganTeacher.y = 20;
+                roamingGamers = []; // Safety wipe
+
+                // Draw Peace Aura
+                const pulse = Math.sin(Date.now() / 500) * 20;
+                const gradAura = ctx.createRadialGradient(
+                    veganTeacher.x + 100, veganTeacher.y + 100, 50,
+                    veganTeacher.x + 100, veganTeacher.y + 100, 150 + pulse
+                );
+                gradAura.addColorStop(0, 'rgba(74, 222, 128, 0.4)');
+                gradAura.addColorStop(1, 'rgba(74, 222, 128, 0)');
+                ctx.fillStyle = gradAura;
+                ctx.beginPath();
+                ctx.arc(veganTeacher.x + 100, veganTeacher.y + 100, 150 + pulse, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            if (imgVeganTeacher.complete && imgVeganTeacher.naturalWidth !== 0) {
+                ctx.drawImage(imgVeganTeacher, veganTeacher.x, veganTeacher.y, 200, 200);
+            } else { 
+                ctx.fillStyle = 'green'; ctx.fillRect(veganTeacher.x, veganTeacher.y, 200, 200); 
+            }
+        }
+
+        requestAnimationFrame(animate);
+    }
+
+    const handleInput = (e) => {
+        if (punishment.active) return;
+        if (e.target === canvas) e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        mouse.x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+        mouse.y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+        mouse.active = true;
+    };
+
+    window.addEventListener('mousemove', (e) => { const rect = canvas.getBoundingClientRect(); mouse.x = e.clientX - rect.left; mouse.y = e.clientY - rect.top; });
+    window.addEventListener('mousedown', () => mouse.active = true);
+    window.addEventListener('mouseup', () => mouse.active = false);
+    canvas.addEventListener('touchstart', handleInput, { passive: false });
+    canvas.addEventListener('touchmove', handleInput, { passive: false });
+    canvas.addEventListener('touchend', () => mouse.active = false);
+    window.addEventListener('resize', resize);
+    window.onload = () => { resize(); updateShop(); requestAnimationFrame(animate); };
+</script>
+
+</body>
+</html>

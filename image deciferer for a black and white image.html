@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binary Encoder & Decoder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: monospace; }
+        .pixel-canvas { 
+            image-rendering: pixelated; 
+            border: 2px solid #334155;
+            background: #000;
+            max-width: 100%;
+            height: auto;
+        }
+        textarea { background: #1e293b !important; color: #38bdf8 !important; border: 1px solid #334155 !important; }
+        button { transition: all 0.2s; }
+        button:hover { transform: translateY(-2px); filter: brightness(1.1); }
+        .action-btn:active { transform: scale(0.95); }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-blue-400 mb-2">BINARY ARCHITECT V3.0</h1>
+            <p class="text-slate-400">The Complete Encoder / Decoder</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <div class="bg-slate-800 p-6 rounded-xl shadow-xl border border-slate-700">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="block text-sm font-bold text-blue-300">1. WRITE MESSAGE</label>
+                    <button onclick="clearInput()" class="text-xs text-red-400 hover:text-red-300 font-bold uppercase tracking-wider">
+                        [ Clear Input ]
+                    </button>
+                </div>
+                <textarea id="mainInput" class="w-full h-32 p-4 rounded mb-4 text-sm" placeholder="Type your code or secret message here..."></textarea>
+                
+                <button onclick="encodeToImage()" class="w-full bg-blue-600 py-3 rounded font-bold mb-4">Generate Image</button>
+
+                <div class="flex items-center justify-center bg-black rounded p-2 mb-4">
+                    <canvas id="encodeCanvas" class="pixel-canvas" style="width: 150px; height: 150px;"></canvas>
+                </div>
+                <button onclick="downloadCanvas()" class="w-full bg-slate-600 py-2 rounded font-bold">Save as PNG</button>
+            </div>
+
+            <div class="bg-slate-800 p-6 rounded-xl shadow-xl border border-slate-700">
+                <label class="block text-sm font-bold mb-2 text-emerald-300">2. DECODE IMAGE</label>
+                
+                <input type="file" id="imageLoader" accept="image/png" class="mb-4 block w-full text-sm text-slate-400
+                    file:mr-4 file:py-2 file:px-4 file:rounded file:border-0
+                    file:text-sm file:font-semibold file:bg-emerald-600 file:text-white
+                    hover:file:bg-emerald-700"/>
+
+                <div class="flex items-center justify-center bg-black rounded p-2 mb-4">
+                    <canvas id="decodeCanvas" class="pixel-canvas" style="width: 150px; height: 150px;"></canvas>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="decodeToBinary()" class="bg-emerald-600 py-2 rounded font-bold">Extract 1s & 0s</button>
+                    <button onclick="decodeToText()" class="bg-amber-600 py-2 rounded font-bold">Translate to Text</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 bg-slate-800 p-6 rounded-xl shadow-xl border border-slate-700">
+            <div class="flex justify-between items-center mb-2">
+                <label class="block text-sm font-bold text-amber-300">DECODED RESULTS</label>
+                <div class="flex gap-3">
+                    <button onclick="clearOutput()" class="text-xs text-red-400 hover:text-red-300 font-bold uppercase tracking-wider flex items-center">
+                        [ Clear Output ]
+                    </button>
+                    <button onclick="copyOutput()" id="copyBtn" class="action-btn bg-amber-600/20 text-amber-400 hover:bg-amber-600 hover:text-white px-4 py-1 rounded text-sm font-bold border border-amber-600/50">
+                        Copy Text
+                    </button>
+                </div>
+            </div>
+            <textarea id="mainOutput" class="w-full h-48 p-4 rounded text-sm" readonly placeholder="Extracted binary or text will appear here..."></textarea>
+        </div>
+    </div>
+
+    <script>
+        const input = document.getElementById('mainInput');
+        const output = document.getElementById('mainOutput');
+        const copyBtn = document.getElementById('copyBtn');
+        const fileLoader = document.getElementById('imageLoader');
+        
+        const encCanvas = document.getElementById('encodeCanvas');
+        const encCtx = encCanvas.getContext('2d');
+        
+        const decCanvas = document.getElementById('decodeCanvas');
+        const decCtx = decCanvas.getContext('2d');
+
+        let extractedBinary = ""; 
+
+        // Initialize empty canvases on load
+        window.onload = () => {
+            resetCanvas(encCanvas, encCtx);
+            resetCanvas(decCanvas, decCtx);
+        }
+
+        function resetCanvas(cvs, ctx) {
+            cvs.width = 10;
+            cvs.height = 10;
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, 10, 10);
+        }
+
+        // --- CLEAR LOGIC (PATCHED) ---
+        function clearInput() {
+            input.value = "";
+            resetCanvas(encCanvas, encCtx);
+        }
+
+        function clearOutput() {
+            output.value = "";
+            extractedBinary = ""; // Clear memory
+            fileLoader.value = ""; // Clear file input
+            resetCanvas(decCanvas, decCtx); // Clear visual canvas
+            resetCopyButton();
+        }
+
+        // --- ENCODER LOGIC ---
+        function encodeToImage() {
+            const str = input.value;
+            if (!str) return alert("Please enter text first!");
+
+            const cleanBinary = str.split('').map(char => char.charCodeAt(0).toString(2).padStart(8, '0')).join('');
+            const side = Math.ceil(Math.sqrt(cleanBinary.length));
+            
+            encCanvas.width = side;
+            encCanvas.height = side;
+
+            encCtx.fillStyle = "black";
+            encCtx.fillRect(0, 0, side, side);
+
+            for (let i = 0; i < cleanBinary.length; i++) {
+                const x = i % side;
+                const y = Math.floor(i / side);
+                encCtx.fillStyle = cleanBinary[i] === '1' ? 'white' : 'black';
+                encCtx.fillRect(x, y, 1, 1);
+            }
+        }
+
+        function downloadCanvas() {
+            // Prevent downloading a blank 10x10 square
+            if (encCanvas.width === 10 && encCanvas.height === 10 && !input.value) {
+                return alert("Nothing to save! Generate an image first.");
+            }
+            const link = document.createElement('a');
+            link.download = 'secret-data.png';
+            link.href = encCanvas.toDataURL();
+            link.click();
+        }
+
+        // --- DECODER LOGIC ---
+        fileLoader.addEventListener('change', function(e) {
+            if (!e.target.files[0]) return; // Handle user clicking cancel on file upload
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    decCanvas.width = img.width;
+                    decCanvas.height = img.height;
+                    decCtx.drawImage(img, 0, 0);
+                    extractBinaryFromCanvas(img.width, img.height);
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        });
+
+        function extractBinaryFromCanvas(width, height) {
+            extractedBinary = "";
+            const imageData = decCtx.getImageData(0, 0, width, height);
+            const pixels = imageData.data;
+
+            for (let i = 0; i < pixels.length; i += 4) {
+                const redValue = pixels[i];
+                extractedBinary += redValue > 128 ? '1' : '0';
+            }
+        }
+
+        function decodeToBinary() {
+            if (!extractedBinary) return alert("Please upload an image first!");
+            // Only format up to the valid data, preventing trailing chunks
+            let formatted = extractedBinary.match(/.{1,8}/g);
+            if(formatted) output.value = formatted.join(' ');
+            resetCopyButton();
+        }
+
+        function decodeToText() {
+            if (!extractedBinary) return alert("Please upload an image first!");
+            
+            let text = "";
+            for (let i = 0; i < extractedBinary.length; i += 8) {
+                const byte = extractedBinary.substring(i, i + 8);
+                
+                // PATCH: Ignore leftover pixels that don't make a full 8-bit character
+                if (byte.length < 8) break; 
+                // Stop at empty padding zeros
+                if (byte === "00000000") break; 
+                
+                text += String.fromCharCode(parseInt(byte, 2));
+            }
+            output.value = text;
+            resetCopyButton();
+        }
+
+        // --- COPY LOGIC ---
+        function copyOutput() {
+            if (!output.value) return; 
+            
+            navigator.clipboard.writeText(output.value).then(() => {
+                copyBtn.innerText = "Copied!";
+                copyBtn.classList.add("bg-amber-600", "text-white");
+                setTimeout(() => { resetCopyButton(); }, 2000);
+            }).catch(err => {
+                alert("Failed to copy text: " + err);
+            });
+        }
+
+        function resetCopyButton() {
+            copyBtn.innerText = "Copy Text";
+            copyBtn.classList.remove("bg-amber-600", "text-white");
+        }
+    </script>
+</body>
+</html>

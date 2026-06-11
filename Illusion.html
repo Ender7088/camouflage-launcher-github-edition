@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Waterfall Illusion - Enhanced</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0a0a0a;
+            color: #f0f0f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+            transition: background-color 0.5s ease;
+        }
+        .canvas-container {
+            position: relative;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(59, 130, 246, 0.2);
+            border: 2px solid #222;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+        }
+        #illusionCanvas {
+            cursor: none;
+            display: block;
+        }
+        .fixation-point {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 14px;
+            height: 14px;
+            background-color: #ff3333;
+            border: 2px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 15px rgba(255, 0, 0, 1);
+            pointer-events: none;
+            z-index: 50;
+        }
+        .timer-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-family: monospace;
+            font-size: 1.2rem;
+            color: #3b82f6;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .timer-active { opacity: 1; }
+        input[type=range] { accent-color: #3b82f6; }
+    </style>
+</head>
+<body class="flex flex-col items-center min-h-screen py-6 px-4">
+
+    <div class="max-w-4xl w-full text-center mb-6">
+        <h1 class="text-4xl font-extrabold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+            Waterfall Illusion
+        </h1>
+        <p class="text-gray-400 text-sm md:text-base">Focus on the red dot. Let your brain adapt to the movement.</p>
+    </div>
+
+    <div class="flex flex-col xl:flex-row gap-8 items-center justify-center w-full max-w-7xl">
+        
+        <!-- Interactive Canvas Area -->
+        <div class="relative group">
+            <div class="canvas-container" id="container">
+                <canvas id="illusionCanvas"></canvas>
+                <div class="fixation-point" id="fixation"></div>
+                <div id="timerDisplay" class="timer-overlay">30s</div>
+            </div>
+            <div class="flex justify-between mt-4 w-full px-2">
+                <button id="fullscreenBtn" class="text-xs text-gray-500 hover:text-blue-400 transition-colors">
+                    ⛶ View Fullscreen
+                </button>
+                <p class="text-xs text-gray-500">Move mouse over canvas to hide cursor</p>
+            </div>
+        </div>
+
+        <!-- Professional Control Panel -->
+        <div class="w-full lg:w-96 bg-gray-900/80 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-gray-800">
+            <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.532 1.532 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.532 1.532 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                </svg>
+                Experiment Controls
+            </h2>
+            
+            <div class="space-y-6">
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="toggleBtn" class="py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all active:scale-95 shadow-lg shadow-blue-900/20">
+                        Stop Motion
+                    </button>
+                    <button id="startTimerBtn" class="py-3 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl transition-all active:scale-95 border border-gray-700">
+                        Start Timer
+                    </button>
+                </div>
+
+                <!-- Speed Slider -->
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <label class="text-sm font-semibold text-gray-400">Flow Velocity</label>
+                        <span id="speedVal" class="text-blue-400 font-mono font-bold">4.0</span>
+                    </div>
+                    <input type="range" id="speedRange" min="0.5" max="15" step="0.1" value="4.0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <!-- Pattern Selection -->
+                <div>
+                    <label class="text-sm font-semibold text-gray-400 block mb-2">Pattern Architecture</label>
+                    <select id="patternSelect" class="w-full bg-gray-800 text-white p-3 rounded-xl border border-gray-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                        <option value="split-h">Top/Bottom Vertical Flow (New!)</option>
+                        <option value="split-v">Left/Right Vertical Flow</option>
+                        <option value="radial">Expanding Vortex (Recommended)</option>
+                        <option value="spiral">Hypnotic Spiral</option>
+                        <option value="stripes">Classic Waterfall</option>
+                        <option value="pulse">Breathing Pulse</option>
+                    </select>
+                </div>
+
+                <!-- Contrast Settings -->
+                <div class="flex items-center justify-between p-3 bg-gray-800/50 rounded-xl">
+                    <span class="text-sm text-gray-300">Reverse Direction</span>
+                    <button id="reverseBtn" class="p-2 hover:bg-gray-700 rounded-full transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Experiment Instructions -->
+            <div class="mt-8 text-xs text-gray-500 leading-relaxed space-y-2">
+                <p>1. Choose <b>Top/Bottom Vertical Flow</b> for the requested effect.</p>
+                <p>2. Start the timer and stare at the red dot.</p>
+                <p>3. Upper half moves down, lower half moves up (meeting at the dot).</p>
+                <p>4. After 30s, the static image will appear to "compress" or "stretch".</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Static Image Reference -->
+    <div class="mt-10 w-full max-w-lg">
+        <div class="relative group cursor-help">
+            <div class="h-32 w-full bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 rounded-xl flex items-center justify-center border-2 border-dashed border-gray-600 overflow-hidden">
+                <div class="absolute inset-0 bg-white opacity-10 group-hover:opacity-0 transition-opacity"></div>
+                <span class="text-gray-900 font-black text-xl tracking-widest uppercase opacity-60">Look Here After Staring</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('illusionCanvas');
+        const ctx = canvas.getContext('2d');
+        const speedRange = document.getElementById('speedRange');
+        const speedVal = document.getElementById('speedVal');
+        const patternSelect = document.getElementById('patternSelect');
+        const toggleBtn = document.getElementById('toggleBtn');
+        const reverseBtn = document.getElementById('reverseBtn');
+        const startTimerBtn = document.getElementById('startTimerBtn');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+        let width, height;
+        let offset = 0;
+        let isMoving = true;
+        let direction = 1;
+        let speed = 4.0;
+        let timerSeconds = 30;
+        let timerInterval = null;
+
+        function resize() {
+            const containerSize = Math.min(window.innerWidth - 60, window.innerHeight - 250, 600);
+            width = canvas.width = containerSize;
+            height = canvas.height = containerSize;
+        }
+
+        // Pattern Draw functions
+        function drawSplitHorizontal() {
+            const stripeHeight = 30;
+            const midY = height / 2;
+            const totalStripes = Math.ceil(height / stripeHeight) + 4;
+            
+            // Top Half: Moving Downwards toward the dot
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, width, midY);
+            ctx.clip();
+            for (let i = -2; i < totalStripes; i++) {
+                const y = (i * stripeHeight) + (offset % (stripeHeight * 2)) * direction;
+                ctx.fillStyle = (Math.abs(i) % 2 === 0) ? '#000' : '#fff';
+                ctx.fillRect(0, y, width, stripeHeight);
+            }
+            ctx.restore();
+            
+            // Bottom Half: Moving Upwards toward the dot
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, midY, width, midY);
+            ctx.clip();
+            for (let i = -2; i < totalStripes; i++) {
+                const y = (i * stripeHeight) - (offset % (stripeHeight * 2)) * direction;
+                ctx.fillStyle = (Math.abs(i) % 2 === 0) ? '#000' : '#fff';
+                ctx.fillRect(0, y + midY, width, stripeHeight);
+            }
+            ctx.restore();
+        }
+
+        function drawSplitVertical() {
+            const stripeHeight = 30;
+            const midX = width / 2;
+            const totalStripes = Math.ceil(height / stripeHeight) + 4;
+            
+            // Left Side: Moving Up
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, midX, height);
+            ctx.clip();
+            for (let i = -2; i < totalStripes; i++) {
+                const y = (i * stripeHeight) - (offset % (stripeHeight * 2)) * direction;
+                ctx.fillStyle = (Math.abs(i) % 2 === 0) ? '#000' : '#fff';
+                ctx.fillRect(0, y, midX, stripeHeight);
+            }
+            ctx.restore();
+            
+            // Right Side: Moving Down
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(midX, 0, midX, height);
+            ctx.clip();
+            for (let i = -2; i < totalStripes; i++) {
+                const y = (i * stripeHeight) + (offset % (stripeHeight * 2)) * direction;
+                ctx.fillStyle = (Math.abs(i) % 2 === 0) ? '#000' : '#fff';
+                ctx.fillRect(midX, y, midX, stripeHeight);
+            }
+            ctx.restore();
+        }
+
+        function drawStripes() {
+            const stripeHeight = 30;
+            const totalStripes = Math.ceil(height / stripeHeight) + 4;
+            for (let i = -2; i < totalStripes; i++) {
+                const y = (i * stripeHeight) + (offset % (stripeHeight * 2)) * direction;
+                ctx.fillStyle = (Math.abs(i) % 2 === 0) ? '#000' : '#fff';
+                ctx.fillRect(0, y, width, stripeHeight);
+            }
+        }
+
+        function drawRadial() {
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const maxRadius = Math.sqrt(width**2 + height**2);
+            const ringWidth = 40;
+            
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, width, height);
+
+            for (let r = maxRadius + ringWidth; r > 0; r -= ringWidth) {
+                const currentR = r - (offset % (ringWidth * 2)) * direction;
+                if (currentR <= 0) continue;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, currentR, 0, Math.PI * 2);
+                ctx.fillStyle = (Math.floor(r / ringWidth) % 2 === 0) ? '#000' : '#fff';
+                ctx.fill();
+            }
+        }
+
+        function drawSpiral() {
+            const centerX = width / 2;
+            const centerY = height / 2;
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, width, height);
+            
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(offset * 0.02 * direction);
+            
+            const numArms = 12;
+            for (let j = 0; j < numArms; j++) {
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                for (let i = 0; i < 500; i++) {
+                    const angle = 0.08 * i;
+                    const r = (2 + angle * 4);
+                    const x = r * Math.cos(angle + (j * Math.PI * 2 / numArms));
+                    const y = r * Math.sin(angle + (j * Math.PI * 2 / numArms));
+                    ctx.lineTo(x, y);
+                }
+                ctx.lineWidth = 20;
+                ctx.strokeStyle = '#000';
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawPulse() {
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const numCircles = 8;
+            const baseRadius = width / numCircles;
+            
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, height);
+
+            for (let i = numCircles; i > 0; i--) {
+                const pulseScale = 1 + Math.sin(offset * 0.05 * direction) * 0.2;
+                const r = (i * baseRadius) * pulseScale;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, Math.max(0, r), 0, Math.PI * 2);
+                ctx.fillStyle = i % 2 === 0 ? '#fff' : '#000';
+                ctx.fill();
+            }
+        }
+
+        function animate() {
+            if (isMoving) {
+                offset += speed;
+            }
+
+            ctx.clearRect(0, 0, width, height);
+
+            switch (patternSelect.value) {
+                case 'split-h': drawSplitHorizontal(); break;
+                case 'split-v': drawSplitVertical(); break;
+                case 'stripes': drawStripes(); break;
+                case 'radial': drawRadial(); break;
+                case 'spiral': drawSpiral(); break;
+                case 'pulse': drawPulse(); break;
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // UI Logic Functions
+        function startExperiment() {
+            if (timerInterval) clearInterval(timerInterval);
+            
+            isMoving = true;
+            updateToggleUI();
+            
+            timerSeconds = 30;
+            timerDisplay.textContent = timerSeconds + "s";
+            timerDisplay.classList.add('timer-active');
+            
+            timerInterval = setInterval(() => {
+                timerSeconds--;
+                timerDisplay.textContent = timerSeconds + "s";
+                
+                if (timerSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    timerDisplay.classList.remove('timer-active');
+                    isMoving = false;
+                    updateToggleUI();
+                    document.body.style.backgroundColor = "#222";
+                    setTimeout(() => document.body.style.backgroundColor = "#0a0a0a", 150);
+                }
+            }, 1000);
+        }
+
+        function updateToggleUI() {
+            toggleBtn.textContent = isMoving ? "Stop Motion" : "Resume Motion";
+            toggleBtn.className = isMoving 
+                ? "py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-all active:scale-95 shadow-lg shadow-red-900/20"
+                : "py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-all active:scale-95 shadow-lg shadow-green-900/20";
+        }
+
+        // Listeners
+        speedRange.addEventListener('input', (e) => {
+            speed = parseFloat(e.target.value);
+            speedVal.textContent = speed.toFixed(1);
+        });
+
+        toggleBtn.addEventListener('click', () => {
+            isMoving = !isMoving;
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerDisplay.classList.remove('timer-active');
+            }
+            updateToggleUI();
+        });
+
+        reverseBtn.addEventListener('click', () => {
+            direction *= -1;
+        });
+
+        startTimerBtn.addEventListener('click', startExperiment);
+
+        fullscreenBtn.addEventListener('click', () => {
+            if (canvas.requestFullscreen) {
+                canvas.requestFullscreen();
+            } else if (canvas.webkitRequestFullscreen) {
+                canvas.webkitRequestFullscreen();
+            }
+        });
+
+        window.addEventListener('resize', resize);
+        
+        resize();
+        animate();
+    </script>
+</body>
+</html>

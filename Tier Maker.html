@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Tier List Maker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        .tier-row {
+            min-height: 100px;
+        }
+        .item-card {
+            cursor: grab;
+            transition: transform 0.2s;
+        }
+        .item-card:active {
+            cursor: grabbing;
+        }
+        .dragging {
+            opacity: 0.5;
+        }
+        .tier-label {
+            writing-mode: horizontal-tb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100px;
+            min-width: 100px;
+            font-weight: bold;
+            font-size: 1.5rem;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        /* Handle mobile touch scrolling vs dragging */
+        .no-scroll {
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8 font-sans">
+
+    <div class="max-w-5xl mx-auto">
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-red-500 mb-2">
+                TIER MAKER
+            </h1>
+            <p class="text-gray-400">Upload, drag, and rank your favorites.</p>
+        </header>
+
+        <!-- Controls -->
+        <div class="flex flex-wrap gap-4 mb-6 justify-center bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700">
+            <label class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg cursor-pointer transition flex items-center gap-2">
+                <span>Upload Images</span>
+                <input type="file" id="imageUpload" multiple accept="image/*" class="hidden">
+            </label>
+            <button id="screenshotBtn" class="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-lg transition flex items-center gap-2">
+                Capture Screenshot
+            </button>
+            <button id="resetBtn" class="bg-gray-700 hover:bg-red-600 text-white px-6 py-2 rounded-lg transition">
+                Reset Board
+            </button>
+        </div>
+
+        <!-- Tier List Container (This part is captured) -->
+        <div id="tierListCapture" class="bg-black p-2 rounded-sm shadow-2xl overflow-hidden border border-gray-800">
+            <div id="tier-rows-container" class="flex flex-col gap-1">
+                <!-- Tiers will be rendered here -->
+            </div>
+        </div>
+
+        <!-- Item Bank -->
+        <div class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700 min-h-[150px]">
+            <h2 class="text-sm uppercase tracking-widest text-gray-500 mb-4 font-bold">Unranked Items</h2>
+            <div id="itemBank" class="flex flex-wrap gap-2 tier-row p-2 bg-gray-900/50 rounded-lg border-2 border-dashed border-gray-700">
+                <!-- Uploaded items appear here -->
+            </div>
+        </div>
+
+        <!-- Hidden Canvas/Download area -->
+        <div id="previewContainer" class="mt-8 hidden">
+            <h3 class="text-center mb-2">Your Result:</h3>
+            <div id="screenshotPreview" class="flex justify-center border-4 border-blue-500 p-2 bg-white rounded-lg"></div>
+            <p class="text-center text-sm mt-2 text-gray-400">Right-click image to save if download doesn't start.</p>
+        </div>
+    </div>
+
+    <script>
+        const tiers = [
+            { label: 'S', color: 'bg-red-500' },
+            { label: 'A', color: 'bg-orange-400' },
+            { label: 'B', color: 'bg-yellow-400' },
+            { label: 'C', color: 'bg-green-400' },
+            { label: 'D', color: 'bg-blue-400' },
+            { label: 'F', color: 'bg-purple-500' }
+        ];
+
+        const container = document.getElementById('tier-rows-container');
+        const itemBank = document.getElementById('itemBank');
+        const imageUpload = document.getElementById('imageUpload');
+        const screenshotBtn = document.getElementById('screenshotBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // Create Tier Rows
+        function initTiers() {
+            container.innerHTML = '';
+            tiers.forEach(tier => {
+                const row = document.createElement('div');
+                row.className = 'flex border-b border-gray-800 bg-gray-900 group';
+                row.innerHTML = `
+                    <div class="tier-label ${tier.color} text-gray-900 select-none">
+                        ${tier.label}
+                    </div>
+                    <div class="tier-row flex-1 flex flex-wrap gap-1 p-2 transition-colors duration-200" ondragover="allowDrop(event)" ondrop="drop(event)">
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        // Drag and Drop Logic
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
+
+        function drag(ev) {
+            ev.dataTransfer.setData("text", ev.target.id);
+            ev.target.classList.add('dragging');
+        }
+
+        function drop(ev) {
+            ev.preventDefault();
+            const data = ev.dataTransfer.getData("text");
+            const draggedElement = document.getElementById(data);
+            draggedElement.classList.remove('dragging');
+            
+            // Ensure we drop into the tier-row container specifically
+            let target = ev.target;
+            while (target && !target.classList.contains('tier-row')) {
+                target = target.parentElement;
+            }
+            
+            if (target) {
+                target.appendChild(draggedElement);
+            }
+        }
+
+        // Handle File Uploads
+        imageUpload.addEventListener('change', (e) => {
+            const files = e.target.files;
+            for (let i = 0; i < files.length; i++) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const id = 'item-' + Date.now() + '-' + i;
+                    const img = document.createElement('img');
+                    img.src = event.target.result;
+                    img.id = id;
+                    img.draggable = true;
+                    img.className = 'item-card w-20 h-20 md:w-24 md:h-24 object-cover rounded shadow-md border border-gray-700';
+                    img.ondragstart = drag;
+                    
+                    // Touch support for mobile
+                    img.addEventListener('touchstart', handleTouchStart, {passive: false});
+                    img.addEventListener('touchmove', handleTouchMove, {passive: false});
+                    img.addEventListener('touchend', handleTouchEnd, {passive: false});
+
+                    itemBank.appendChild(img);
+                };
+                reader.readAsDataURL(files[i]);
+            }
+        });
+
+        // Screenshot functionality
+        screenshotBtn.addEventListener('click', () => {
+            const captureArea = document.getElementById('tierListCapture');
+            
+            html2canvas(captureArea, {
+                backgroundColor: '#000000',
+                scale: 2, // Better quality
+                logging: false,
+                useCORS: true
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.download = 'my-tier-list.png';
+                link.href = imgData;
+                link.click();
+                
+                // Show preview on page too
+                const preview = document.getElementById('screenshotPreview');
+                const previewContainer = document.getElementById('previewContainer');
+                preview.innerHTML = '';
+                const previewImg = new Image();
+                previewImg.src = imgData;
+                previewImg.className = "max-w-full h-auto rounded shadow-lg";
+                preview.appendChild(previewImg);
+                previewContainer.classList.remove('hidden');
+                previewContainer.scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+
+        // Reset Board
+        resetBtn.addEventListener('click', () => {
+            if (confirm('Clear all images and reset tiers?')) {
+                itemBank.innerHTML = '';
+                initTiers();
+                document.getElementById('previewContainer').classList.add('hidden');
+            }
+        });
+
+        // Basic Touch Drag Support
+        let activeTouchElement = null;
+
+        function handleTouchStart(e) {
+            activeTouchElement = e.target;
+            e.target.classList.add('dragging');
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault(); // Prevent scrolling while dragging
+            const touch = e.touches[0];
+            const element = activeTouchElement;
+            if (!element) return;
+            
+            element.style.position = 'fixed';
+            element.style.left = (touch.clientX - element.offsetWidth / 2) + 'px';
+            element.style.top = (touch.clientY - element.offsetHeight / 2) + 'px';
+            element.style.zIndex = '1000';
+            element.style.pointerEvents = 'none'; // Allow finding element beneath
+        }
+
+        function handleTouchEnd(e) {
+            const element = activeTouchElement;
+            if (!element) return;
+            
+            element.classList.remove('dragging');
+            element.style.position = '';
+            element.style.left = '';
+            element.style.top = '';
+            element.style.zIndex = '';
+            element.style.pointerEvents = 'auto';
+
+            const touch = e.changedTouches[0];
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            
+            let dropZone = target;
+            while (dropZone && !dropZone.classList.contains('tier-row')) {
+                dropZone = dropZone.parentElement;
+            }
+
+            if (dropZone) {
+                dropZone.appendChild(element);
+            } else {
+                itemBank.appendChild(element);
+            }
+            
+            activeTouchElement = null;
+        }
+
+        // Initialize on load
+        window.onload = initTiers;
+        
+        // Add itemBank as a drop zone too
+        itemBank.ondragover = allowDrop;
+        itemBank.ondrop = drop;
+
+    </script>
+</body>
+</html>

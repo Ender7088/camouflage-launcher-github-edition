@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect 4 - AI & Local PvP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --board-bg: #1e3a8a;
+            --cell-size: min(12vw, 80px);
+            --player1-color: #ef4444;
+            --player2-color: #ffb703;
+            --empty-color: #0f172a;
+        }
+
+        body {
+            background: radial-gradient(circle at center, #1e293b, #0f172a);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .board {
+            background-color: var(--board-bg);
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            position: relative;
+        }
+
+        .cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            background-color: var(--empty-color);
+            border-radius: 50%;
+            cursor: pointer;
+            position: relative;
+            box-shadow: inset 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.2s ease;
+        }
+
+        .cell:hover {
+            transform: scale(1.05);
+            background-color: #1e293b;
+        }
+
+        .disc {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            animation: drop 0.5s cubic-bezier(0.45, 0.05, 0.55, 0.95);
+        }
+
+        .player1-disc { background: radial-gradient(circle at 30% 30%, #ff6b6b, #ef4444); border: 2px solid #b91c1c; }
+        .player2-disc { background: radial-gradient(circle at 30% 30%, #ffdf5e, #ffb703); border: 2px solid #b45309; }
+
+        @keyframes drop {
+            0% { transform: translateY(-400px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+
+        .winning-cell {
+            animation: pulse 1s infinite alternate;
+            z-index: 10;
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); box-shadow: 0 0 0 rgba(255,255,255,0); }
+            to { transform: scale(1.1); box-shadow: 0 0 20px rgba(255,255,255,0.8); }
+        }
+
+        .controls {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1.5rem;
+            border-radius: 9999px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .active-btn {
+            background: #3b82f6;
+            border-color: #60a5fa;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls px-4">
+        <h1 class="text-4xl font-black mb-4 tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">CONNECT 4</h1>
+        
+        <div class="flex gap-4 justify-center mb-6">
+            <button id="pvp-btn" class="btn active-btn" onclick="setMode('pvp')">Local 1v1</button>
+            <button id="pva-btn" class="btn" onclick="setMode('pva')">Play AI</button>
+        </div>
+
+        <div id="status" class="text-xl font-medium mb-2 h-8 flex items-center justify-center">
+            Player 1's Turn
+        </div>
+    </div>
+
+    <div id="board" class="board">
+        <!-- JS generates cells here -->
+    </div>
+
+    <div class="mt-8">
+        <button onclick="resetGame()" class="btn flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            Reset Game
+        </button>
+    </div>
+
+    <script>
+        const ROWS = 6;
+        const COLS = 7;
+        const PLAYER1 = 1;
+        const PLAYER2 = 2;
+        const EMPTY = 0;
+
+        let board = [];
+        let currentPlayer = PLAYER1;
+        let isGameOver = false;
+        let gameMode = 'pvp'; // 'pvp' or 'pva'
+        let isAiThinking = false;
+
+        function initBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+            board = Array(ROWS).fill().map(() => Array(COLS).fill(EMPTY));
+
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    cell.onclick = () => handleMove(c);
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        function setMode(mode) {
+            gameMode = mode;
+            document.getElementById('pvp-btn').classList.toggle('active-btn', mode === 'pvp');
+            document.getElementById('pva-btn').classList.toggle('active-btn', mode === 'pva');
+            resetGame();
+        }
+
+        function handleMove(col) {
+            if (isGameOver || isAiThinking) return;
+            
+            const row = getLowestEmptyRow(board, col);
+            if (row === -1) return;
+
+            makeMove(row, col);
+
+            if (checkWin(board, row, col, currentPlayer)) {
+                endGame(`Player ${currentPlayer} Wins!`);
+                return;
+            }
+
+            if (board.every(row => row.every(cell => cell !== EMPTY))) {
+                endGame("It's a Draw!");
+                return;
+            }
+
+            currentPlayer = (currentPlayer === PLAYER1) ? PLAYER2 : PLAYER1;
+            updateStatus();
+
+            if (gameMode === 'pva' && currentPlayer === PLAYER2) {
+                isAiThinking = true;
+                setTimeout(makeAiMove, 600);
+            }
+        }
+
+        function makeMove(row, col) {
+            board[row][col] = currentPlayer;
+            const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+            const disc = document.createElement('div');
+            disc.className = `disc player${currentPlayer}-disc`;
+            cell.appendChild(disc);
+        }
+
+        function getLowestEmptyRow(b, col) {
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (b[r][col] === EMPTY) return r;
+            }
+            return -1;
+        }
+
+        function updateStatus() {
+            const status = document.getElementById('status');
+            const color = currentPlayer === PLAYER1 ? 'text-red-500' : 'text-yellow-400';
+            const name = gameMode === 'pva' && currentPlayer === PLAYER2 ? 'AI' : `Player ${currentPlayer}`;
+            status.innerHTML = `<span class="${color}">${name}'s Turn</span>`;
+        }
+
+        function checkWin(b, r, c, p) {
+            const directions = [
+                [[0, 1], [0, -1]], // Horizontal
+                [[1, 0], [-1, 0]], // Vertical
+                [[1, 1], [-1, -1]], // Diagonal \
+                [[1, -1], [-1, 1]]  // Diagonal /
+            ];
+
+            for (const dir of directions) {
+                let count = 1;
+                let winningCells = [[r, c]];
+
+                for (const [dr, dc] of dir) {
+                    let nr = r + dr;
+                    let nc = c + dc;
+                    while (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && b[nr][nc] === p) {
+                        count++;
+                        winningCells.push([nr, nc]);
+                        nr += dr;
+                        nc += dc;
+                    }
+                }
+
+                if (count >= 4) {
+                    if (!isAiThinking && !isGameOver) highlightWinningCells(winningCells);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function highlightWinningCells(cells) {
+            cells.forEach(([r, c]) => {
+                const cell = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+                cell.classList.add('winning-cell');
+            });
+        }
+
+        function endGame(msg) {
+            isGameOver = true;
+            const status = document.getElementById('status');
+            status.innerHTML = `<span class="text-emerald-400 scale-125 transition-transform">${msg}</span>`;
+        }
+
+        function resetGame() {
+            isGameOver = false;
+            currentPlayer = PLAYER1;
+            isAiThinking = false;
+            initBoard();
+            updateStatus();
+        }
+
+        // --- AI LOGIC (Minimax with Alpha-Beta Pruning) ---
+
+        function makeAiMove() {
+            const bestMove = getBestMove(board);
+            isAiThinking = false;
+            handleMove(bestMove);
+        }
+
+        function getBestMove(b) {
+            let bestScore = -Infinity;
+            let move = 3; // Default center
+            
+            // Move ordering: try center columns first
+            const order = [3, 2, 4, 1, 5, 0, 6];
+
+            for (let col of order) {
+                const r = getLowestEmptyRow(b, col);
+                if (r !== -1) {
+                    b[r][col] = PLAYER2;
+                    let score = minimax(b, 5, -Infinity, Infinity, false);
+                    b[r][col] = EMPTY;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        move = col;
+                    }
+                }
+            }
+            return move;
+        }
+
+        function minimax(b, depth, alpha, beta, isMaximizing) {
+            // Check terminal states
+            if (checkWinForAny(b, PLAYER2)) return 10000 + depth;
+            if (checkWinForAny(b, PLAYER1)) return -10000 - depth;
+            if (depth === 0) return evaluateBoard(b);
+
+            const order = [3, 2, 4, 1, 5, 0, 6];
+
+            if (isMaximizing) {
+                let maxEval = -Infinity;
+                for (let col of order) {
+                    const r = getLowestEmptyRow(b, col);
+                    if (r !== -1) {
+                        b[r][col] = PLAYER2;
+                        let eval = minimax(b, depth - 1, alpha, beta, false);
+                        b[r][col] = EMPTY;
+                        maxEval = Math.max(maxEval, eval);
+                        alpha = Math.max(alpha, eval);
+                        if (beta <= alpha) break;
+                    }
+                }
+                return maxEval;
+            } else {
+                let minEval = Infinity;
+                for (let col of order) {
+                    const r = getLowestEmptyRow(b, col);
+                    if (r !== -1) {
+                        b[r][col] = PLAYER1;
+                        let eval = minimax(b, depth - 1, alpha, beta, true);
+                        b[r][col] = EMPTY;
+                        minEval = Math.min(minEval, eval);
+                        beta = Math.min(beta, eval);
+                        if (beta <= alpha) break;
+                    }
+                }
+                return minEval;
+            }
+        }
+
+        function evaluateBoard(b) {
+            let score = 0;
+            // Center column preference
+            for (let r = 0; r < ROWS; r++) {
+                if (b[r][3] === PLAYER2) score += 3;
+                if (b[r][3] === PLAYER1) score -= 3;
+            }
+            // Basic heuristic could be added here for windows of 3, but center-weight + depth handles most
+            return score;
+        }
+
+        function checkWinForAny(b, p) {
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (b[r][c] === p) {
+                        if (checkWinQuiet(b, r, c, p)) return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function checkWinQuiet(b, r, c, p) {
+            const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+            for (const [dr, dc] of directions) {
+                let count = 1;
+                // Check forward
+                let nr = r + dr, nc = c + dc;
+                while (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && b[nr][nc] === p) {
+                    count++; nr += dr; nc += dc;
+                }
+                // Check backward
+                nr = r - dr; nc = c - dc;
+                while (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && b[nr][nc] === p) {
+                    count++; nr -= dr; nc -= dc;
+                }
+                if (count >= 4) return true;
+            }
+            return false;
+        }
+
+        // Initialize
+        window.onload = initBoard;
+    </script>
+</body>
+</html>

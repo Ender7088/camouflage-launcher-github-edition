@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MemeTerminal | The Ultimate Archive</title>
+    <script src="https://code.responsivevoice.org/responsivevoice.js"></script>
+    <style>
+        :root {
+            --bg: #000000; --text: #e1e7ef;
+            --green: #00ff88; --red: #ff3366; --blue: #3d94ff; --orange: #ff6a00; --gold: #f4c430;
+            --border: #232d39;
+        }
+        body { font-family: 'Courier New', monospace; background-color: var(--bg); color: var(--text); margin: 0; overflow: hidden; }
+        
+        #game-screen { display: grid; grid-template-columns: 1fr 1fr 1fr; height: 100vh; width: 100vw; box-sizing: border-box; }
+        .radio-box { background: #000; border-right: 1px solid var(--border); padding: 20px; overflow-y: auto; font-size: 14px; position: relative; height: 100vh; box-sizing: border-box; }
+        
+        .header-container { position: sticky; top: 0; background: #000; padding-bottom: 10px; z-index: 10; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border); margin-bottom: 15px;}
+        .controls { display: flex; gap: 5px; }
+        
+        .msg-entry { margin-bottom: 15px; padding: 10px; border-left: 3px solid; background: rgba(255,255,255,0.03); word-wrap: break-word; }
+
+        #save-btn { position: fixed; bottom: 5px; right: 5px; background: #333; color: #fff; font-size: 8px; padding: 2px 4px; z-index: 100; opacity: 0.6; cursor: pointer; border: 1px solid #555;}
+        #save-btn:hover { background: var(--green); color: #000; opacity: 1; }
+        
+        .tts-btn { background: #111; font-family: 'Courier New', monospace; font-size: 10px; cursor: pointer; border: 1px solid; padding: 4px 6px; font-weight: bold; transition: 0.2s; color: inherit; border-color: inherit;}
+        .tts-btn:hover { background: #333; transform: scale(1.05); }
+
+        .auto-btn { background: transparent; color: #888; border: 1px solid #555; cursor: pointer; font-family: monospace; font-size: 10px; padding: 4px 6px; transition: 0.2s; font-weight: bold;}
+        .auto-btn.active { color: #000; background: var(--green); border-color: var(--green); }
+
+        #secret-input { position: fixed; top: 0; right: 0; width: 20px; height: 20px; opacity: 0.01; z-index: 600; }
+
+        /* BOSS FIGHT OVERLAY */
+        #boss-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; cursor: crosshair; }
+        #boss-ui { position: absolute; top: 20px; width: 100%; text-align: center; pointer-events: none; }
+        #boss-hp-bar { width: 80%; height: 15px; background: #333; margin: 10px auto; border: 2px solid #ff3366; }
+        #boss-hp-fill { width: 100%; height: 100%; background: var(--red); box-shadow: 0 0 15px var(--red); transition: width 0.1s; }
+        #player-status { color: var(--blue); font-size: 18px; font-weight: bold; margin-top: 10px; letter-spacing: 2px; }
+        
+        canvas { display: block; background: radial-gradient(circle, #1a0505 0%, #000 100%); }
+        
+        #death-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10000; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--green); }
+    </style>
+</head>
+<body>
+
+<input type="text" id="secret-input" autocomplete="off" onkeyup="checkSecret(this.value)">
+<button id="save-btn" onclick="saveLogs()">SAVE</button>
+
+<div id="game-screen">
+    <div class="radio-box">
+        <div class="header-container" style="color:var(--blue);">
+            <strong>[ATC] SKY_WATCH</strong>
+            <div class="controls">
+                <button id="auto-krispy" class="auto-btn" onclick="toggleChannelAuto('krispy', 'Sky Watch')">🎙️ AUTO: OFF</button>
+                <button class="tts-btn" onclick="readFeedAloud('krispy-feed')">🔊 READ ALL</button>
+            </div>
+        </div>
+        <div id="krispy-feed"></div>
+    </div>
+    
+    <div class="radio-box">
+        <div class="header-container" style="color:var(--orange);">
+            <strong>[DB] THE_LEGEND</strong>
+            <div class="controls">
+                <button id="auto-chuck" class="auto-btn" onclick="toggleChannelAuto('chuck', 'The Legend')">🎙️ AUTO: OFF</button>
+                <button class="tts-btn" onclick="readFeedAloud('chuck-feed')">🔊 READ ALL</button>
+            </div>
+        </div>
+        <div id="chuck-feed"></div>
+    </div>
+    
+    <div class="radio-box">
+        <div class="header-container" style="color:var(--red);">
+            <strong>[BR] CRINGE_VAULT</strong>
+            <div class="controls">
+                <button id="auto-dad" class="auto-btn" onclick="toggleChannelAuto('dad', 'Cringe Vault')">🎙️ AUTO: OFF</button>
+                <button class="tts-btn" onclick="readFeedAloud('dad-feed')">🔊 READ ALL</button>
+            </div>
+        </div>
+        <div id="dad-feed"></div>
+    </div>
+</div>
+
+<div id="boss-screen">
+    <div id="boss-ui">
+        <h1 id="boss-title" style="color: white; margin: 0; font-size: 24px; letter-spacing: 15px; text-shadow: 0 0 10px red;">CHUCK NORRIS</h1>
+        <div id="boss-hp-bar"><div id="boss-hp-fill"></div></div>
+        <div id="player-status">PLAYER LIVES: <span id="life-count">3</span></div>
+        <div id="attack-name" style="color: var(--orange); font-size: 16px; font-weight: bold; font-style: italic; margin-top: 10px;">MEME PROTOCOL: ENGAGED</div>
+    </div>
+    <canvas id="arena"></canvas>
+</div>
+
+<div id="death-screen">
+    <h1 id="end-title" style="font-size: 72px; color: var(--red);">YOU DIED</h1>
+    <p>Survival Time: <span id="survival-timer" style="color: var(--orange); font-size: 24px; font-weight: bold;">0</span>s</p>
+    <p id="chuck-remark" style="font-style: italic; color: #aaa; margin-top: 20px; font-size: 18px; max-width: 600px;"></p>
+    <button onclick="location.reload()" style="margin-top: 40px; padding: 15px 30px; background: #333; color: white; border: 2px solid #555; cursor: pointer; font-family: monospace; font-size: 18px;">TRY AGAIN</button>
+</div>
+
+<script>
+    // --- RESPONSIVE VOICE TTS ENGINE ---
+    let channelAuto = { krispy: false, chuck: false, dad: false };
+
+    function toggleChannelAuto(cat, displayName) {
+        channelAuto[cat] = !channelAuto[cat];
+        const btn = document.getElementById(`auto-${cat}`);
+        
+        if (channelAuto[cat]) {
+            btn.className = 'auto-btn active';
+            btn.innerText = '🎙️ AUTO: ON';
+            speakSingleLine(`Monitoring ${displayName}.`); 
+        } else {
+            btn.className = 'auto-btn';
+            btn.innerText = '🎙️ AUTO: OFF';
+            if(window.responsiveVoice) responsiveVoice.cancel(); 
+        }
+    }
+
+    function speakSingleLine(text) {
+        if(document.getElementById('boss-screen').style.display === 'block') return; 
+
+        let cleanText = text.replace('> ', '').replace('[SYSTEM]', 'System alert:');
+        
+        if(window.responsiveVoice) {
+            responsiveVoice.speak(cleanText, "US English Male", { pitch: 0.8, rate: 0.95 });
+        }
+    }
+
+    function readFeedAloud(feedId) {
+        if(window.responsiveVoice) responsiveVoice.cancel(); 
+        const feed = document.getElementById(feedId);
+        if(feed.children.length === 0) return;
+
+        const textToRead = Array.from(feed.children).map(msg => msg.innerText).join('. '); 
+        speakSingleLine(textToRead);
+    }
+
+    // --- THE MASSIVE JOKE ARCHIVES ---
+    const masterJokes = {
+        krispy: [
+            "Tower: Spirit 124, what are you doing? Pilot: Standard takeoff. Tower: In 80 knot crosswinds?! You're crab-walking down the runway!",
+            "Antonov: Crosswinds are just light breeze for Big Antonov. Physics follows Antonov.",
+            "Tower: Antonov, why is there a bear walking around your aircraft? Antonov: That's Boris. He does pre-flight inspection.",
+            "Tower: Antonov, your gear is buckling! Antonov: Not my fault American runway is made of butter. I fix with vodka.",
+            "Tower: Spirit 905, stay out of the President's lane! Spirit: I pay my taxes, I fly where I want.",
+            "Tower: Antonov, your landing gear isn't deployed! Antonov: No worry, I test friction landing method.",
+            "Tower: You can't slide a plane like a drift cart! Antonov: In Russia, landing gear is optional.",
+            "757: These winglets make me aerodynamic! Antonov: You look like aquarium reject. Better ugly and efficient than old and thirsty.",
+            "Tower: Spirit, why are you sliding sideways? Spirit: Luxury drifting technique. We give passengers a complimentary drift experience.",
+            "Tower: You're taking off completely sideways! Spirit: This is what we call five-star aerodynamics.",
+            "Tower: How are you generating lift at that angle? Spirit: Lift is optional when you fly on a budget.",
+            "Tower: There's a tornado coming, abort immediately! Antonov: Antonov doesn't fear tornado. Tornado fears Antonov.",
+            "Tower: The winds are pushing 90 knots! Antonov: In Mother Russia, we call this standard Tuesday weather.",
+            "Tower: There's a shark circling the runway. Spirit: That's just a new livery, relax. Tower: I saw Jaws, I'm not moving.",
+            "Antonov: Big Antonov is very hungry today. Little Spirit looks like easy meal.",
+            "Tower: You're seconds from planting your nose gear! Spirit: Close enough is good enough. We learned from the best.",
+            "Tower: You brought a bear to an international airport?! Antonov: He is certified. Wears official vest and everything.",
+            "American Air: I'm carrying 280 tons of freedom. Antonov: Pathetic. Antonov carries 330 tons while sipping vodka.",
+            "Tower: Spirit, you just wiped out half the runway lights! Spirit: The lights were poorly placed. You're welcome.",
+            "Tower: This is a restricted airspace! Spirit: We just bought this airspace on four easy payments of twelve dollars.",
+            "Tower: Please land in the open area of the forest. Spirit: Do I get double XP bonus for that?",
+            "Tower: I'm bringing in B2 bombers to escort you. Spirit: Good, my wife thinks I'm cheating, I need the backup.",
+            "Tower: This is physically impossible! Antonov: Nothing is impossible with enough vodka."
+        ],
+        chuck: [
+            "Chuck Norris doesn't read books. He stares them down until he gets the information he wants.",
+            "Time waits for no man. Unless that man is Chuck Norris.",
+            "If you spell Chuck Norris in Scrabble, you win. Forever.",
+            "Chuck Norris breathes air...five times a day.",
+            "In the Beginning there was nothing...then Chuck Norris roundhouse kicked nothing and told it to get a job.",
+            "When God said, 'Let there be light!' Chuck Norris said, 'Say please.'",
+            "Chuck Norris has a mug of nails instead of coffee in the morning.",
+            "If Chuck Norris were to travel to an alternate dimension in which there was another Chuck Norris and they both fought, they would both win.",
+            "The dinosaurs looked at Chuck Norris the wrong way once. You know what happened to them.",
+            "Chuck Norris' tears cure cancer. Too bad he has never cried.",
+            "If you ask Chuck Norris what time it is, he always says, 'Two seconds till.' After you ask, 'Two seconds to what?' he roundhouse kicks you in the face.",
+            "Chuck Norris does not own a stove, oven or microwave, because revenge is a dish best served cold.",
+            "Chuck Norris does not sleep. He waits.",
+            "There is no chin behind Chuck Norris' beard. There is only another fist.",
+            "The chief export of Chuck Norris is pain.",
+            "Chuck Norris recently had the idea to sell his pee as a canned beverage. It's now called Red Bull.",
+            "On the 7th day, God rested...Chuck Norris took over.",
+            "Chuck Norris can dribble a bowling ball.",
+            "Chuck Norris' roundhouse kick is so powerful, it can be seen from outer space by the naked eye.",
+            "If you want a list of Chuck Norris' enemies, just check the extinct species list.",
+            "Chuck Norris has never blinked in his entire life. Never.",
+            "Chuck Norris does not use spell check. If he happens to misspell a word, Oxford will change the spelling.",
+            "Some kids pee their name in the snow. Chuck Norris can pee his name into concrete.",
+            "Chuck Norris' calendar goes straight from March 31st to April 2nd, because no one fools Chuck Norris.",
+            "Chuck Norris counted to infinity... twice.",
+            "Chuck Norris can speak Braille.",
+            "Chuck Norris can do a wheelie on a unicycle.",
+            "Chuck Norris stands faster than anyone can run.",
+            "Chuck Norris once won a game of Connect Four in three moves.",
+            "Champions are the breakfast of Chuck Norris.",
+            "When the Boogeyman goes to sleep every night he checks his closet for Chuck Norris.",
+            "Chuck Norris can slam revolving doors.",
+            "Chuck Norris does not hunt because the word hunting implies the possibility of failure. Chuck Norris goes killing.",
+            "The dark is afraid of Chuck Norris.",
+            "Chuck Norris can kill two stones with one bird.",
+            "Chuck Norris makes onions cry.",
+            "Death once had a near-Chuck-Norris experience.",
+            "When Chuck Norris writes, he makes paper bleed.",
+            "Chuck Norris can build a snowman out of rain.",
+            "Chuck Norris once punched a man in the soul.",
+            "Chuck Norris can drown a fish.",
+            "When Chuck Norris enters a room, he doesn't turn the lights on, he turns the dark off.",
+            "The only time Chuck Norris was ever wrong was when he thought he had made a mistake.",
+            "Chuck Norris can tie his shoes with his feet.",
+            "Outer space exists because it's afraid to be on the same planet with Chuck Norris.",
+            "When Chuck Norris does a pushup, he's pushing the Earth down.",
+            "Chuck Norris is the reason why Waldo is hiding.",
+            "Chuck Norris doesn't wear a watch. He decides what time it is.",
+            "Chuck Norris does not get frostbite. Chuck Norris bites frost.",
+            "Chuck Norris spices up his steaks with pepper spray.",
+            "The Great Wall of China was originally created to keep Chuck Norris out. It didn't work.",
+            "Chuck Norris can divide by zero.",
+            "The show Survivor had the original premise of putting people on an island with Chuck Norris. There were no survivors.",
+            "Chuck Norris once kicked a horse in the chin. Its descendants are now known as giraffes.",
+            "When Chuck Norris does division, there are no remainders.",
+            "Chuck Norris once ordered a steak in a restaurant. The steak did what it was told.",
+            "We live in an expanding universe. All of it is trying to get away from Chuck Norris.",
+            "Chuck Norris can cook minute rice in 30 seconds.",
+            "Chuck Norris beat the sun in a staring contest.",
+            "Superman owns a pair of Chuck Norris undies.",
+            "Chuck Norris doesn't breathe, he holds air hostage.",
+            "Chuck Norris can clap with one hand."
+        ],
+        dad: [
+            "Who is the most popular guy at the nudist colony? Jonathan, he can carry a cup of coffee in each hand and a dozen donuts.",
+            "In the medical space, what do you call a cheap circumcision? A rip-off.",
+            "What is still together after all the crap they've been through? Your butt cheeks.",
+            "Why is diarrhea hereditary? It runs in your jeans.",
+            "Anyone who subscribes to our jokes should be tested for Coronavirus. One of the symptoms is having no taste.",
+            "What do you call a blind gynecologist? A lip reader.",
+            "I'm an anesthesiologist, I get to pass gas for a living.",
+            "Did you hear about the new restaurant called Karma? There's no menu, you get what you deserve.",
+            "What did the zero say to the eight? Nice belt!",
+            "What do you call cheese that isn't yours? Nacho cheese.",
+            "What is a pirate's favorite letter of the alphabet? You'd think it's R, but his first love be the C.",
+            "What kind of car would an egg drive? A yolks-wagon.",
+            "What do you call someone with no body and no nose? Nobody knows.",
+            "What country's capital is growing the fastest? Ireland. Every day it's Dublin.",
+            "What sits at the bottom of the sea and twitches? A nervous wreck.",
+            "Why can't you hear a psychiatrist using the bathroom? Because the 'P' is silent.",
+            "What kind of exercise do lazy people do? Diddly squats.",
+            "What do you call a fake noodle? An impasta.",
+            "Why did the scarecrow win an award? Because he was outstanding in his field.",
+            "I told my wife she was drawing her eyebrows too high. She looked surprised.",
+            "What's orange and sounds like a parrot? A carrot.",
+            "I'm reading a book on anti-gravity. It's impossible to put down.",
+            "Did you hear about the guy who invented the Lifesaver? They say he made a mint.",
+            "I used to be a baker, but I couldn't make enough dough.",
+            "I'm on a seafood diet. I see food and eat it."
+        ]
+    };
+
+    let availableJokes = { krispy: [...masterJokes.krispy], chuck: [...masterJokes.chuck], dad: [...masterJokes.dad] };
+
+    function post(id, cat, col) {
+        if(document.getElementById('boss-screen').style.display === 'block') return;
+        const c = document.getElementById(id);
+        let msgToPrint = "";
+
+        if (availableJokes[cat].length === 0) {
+            availableJokes[cat] = [...masterJokes[cat]];
+            msgToPrint = "[SYSTEM] " + cat.toUpperCase() + " database depleted. Cycling archives...";
+            const sysD = document.createElement('div');
+            sysD.className = "msg-entry"; sysD.style.color = "#666"; sysD.style.borderColor = "#666";
+            sysD.innerText = "> " + msgToPrint;
+            c.appendChild(sysD);
+            if (channelAuto[cat]) speakSingleLine(msgToPrint);
+        }
+
+        const randomIndex = Math.floor(Math.random() * availableJokes[cat].length);
+        const j = availableJokes[cat].splice(randomIndex, 1)[0];
+
+        const d = document.createElement('div');
+        d.className = "msg-entry"; d.style.color = col; d.style.borderColor = col;
+        d.innerText = "> " + j;
+        c.appendChild(d); c.scrollTop = c.scrollHeight;
+        
+        if(c.children.length > 30) c.removeChild(c.firstChild);
+        
+        if (channelAuto[cat]) speakSingleLine(j);
+    }
+
+    setInterval(() => post('krispy-feed', 'krispy', 'var(--blue)'), 8000);
+    setInterval(() => post('chuck-feed', 'chuck', 'var(--orange)'), 10000);
+    setInterval(() => post('dad-feed', 'dad', 'var(--red)'), 12000);
+
+    function checkSecret(v) { if(v.toLowerCase() === 'chuck norris') startBoss(); }
+
+    function saveLogs() {
+        const krispyLogs = Array.from(document.getElementById('krispy-feed').children).map(e => e.innerText).join('\n');
+        const chuckLogs = Array.from(document.getElementById('chuck-feed').children).map(e => e.innerText).join('\n');
+        const dadLogs = Array.from(document.getElementById('dad-feed').children).map(e => e.innerText).join('\n');
+        let text = "--- MEME TERMINAL LOGS ---\n\n[SKY_WATCH]\n" + krispyLogs + "\n\n[THE_LEGEND]\n" + chuckLogs + "\n\n[CRINGE_VAULT]\n" + dadLogs;
+        const blob = new Blob([text], {type: 'text/plain'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'meme_log.txt'; a.click();
+    }
+
+    // --- BOSS LOGIC ---
+    const canvas = document.getElementById('arena');
+    const ctx = canvas.getContext('2d');
+    const bossImg = new Image();
+    bossImg.src = 'chuck.jpeg';
+
+    let player = { x: 0, y: 0, r: 5, hp: 3, invuln: 0 }; 
+    let projectiles = [];
+    let playerBullets = [];
+    let isShooting = false;
+    let boss = { x: 0, y: 150, phase: -1, phaseTimer: 0, attackSpeed: 1, hp: 7500, maxHp: 7500 };
+    let frame = 0, gameActive = false, startTime = 0;
+
+    const phaseNames = ["TRIPLE ROUNDHOUSE", "EARTH PUSH-UP", "COUNT TO INFINITY", "THE STARE DOWN", "TEXAS SPREAD", "DIVIDE BY ZERO"];
+
+    function startBoss() {
+        if(window.responsiveVoice) responsiveVoice.cancel(); 
+        channelAuto = { krispy: false, chuck: false, dad: false };
+        
+        document.getElementById('game-screen').style.display = 'none';
+        document.getElementById('save-btn').style.display = 'none';
+        document.getElementById('boss-screen').style.display = 'block';
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        boss.x = canvas.width / 2;
+        gameActive = true;
+        startTime = Date.now();
+        
+        window.addEventListener('mousemove', e => { player.x = e.clientX; player.y = e.clientY; });
+        window.addEventListener('mousedown', () => isShooting = true);
+        window.addEventListener('mouseup', () => isShooting = false);
+        
+        requestAnimationFrame(update);
+    }
+
+    function spawnBullet(x, y, vx, vy, size = 6, type = 'normal', color = '#ff3366') { projectiles.push({ x, y, vx, vy, size, type, color, age: 0 }); }
+
+    function update() {
+        if(!gameActive) return;
+        frame++;
+        ctx.clearRect(0,0,canvas.width, canvas.height);
+
+        let pulse = Math.sin(frame * 0.05) * 10;
+        
+        if(bossImg.complete && bossImg.naturalWidth !== 0) {
+            ctx.drawImage(bossImg, boss.x - 100 - pulse/2, boss.y - 100 - pulse/2, 200 + pulse, 200 + pulse);
+        } else {
+            ctx.fillStyle = "darkred"; ctx.fillRect(boss.x - 100 - pulse/2, boss.y - 100 - pulse/2, 200 + pulse, 200 + pulse);
+        }
+
+        if(player.invuln > 0) player.invuln--;
+        if(isShooting && frame % 4 === 0) playerBullets.push({ x: player.x, y: player.y, vy: -18, size: 5 });
+
+        ctx.fillStyle = "var(--green)";
+        for(let i = playerBullets.length - 1; i >= 0; i--) {
+            let pb = playerBullets[i];
+            pb.y += pb.vy;
+            ctx.beginPath(); ctx.arc(pb.x, pb.y, pb.size, 0, Math.PI*2); ctx.fill();
+
+            if(pb.y > boss.y - 100 && pb.y < boss.y + 100 && pb.x > boss.x - 100 && pb.x < boss.x + 100) {
+                boss.hp -= 10;
+                document.getElementById('boss-hp-fill').style.width = Math.max(0, (boss.hp / boss.maxHp * 100)) + "%";
+                playerBullets.splice(i, 1);
+                if(boss.hp <= 0) { winGame(); return; }
+                continue;
+            }
+            if(pb.y < -50) playerBullets.splice(i, 1);
+        }
+
+        boss.attackSpeed = Math.min(1.8, 1 + (frame / 2000));
+        boss.phaseTimer++;
+        if(boss.phaseTimer > 200 / boss.attackSpeed) { 
+            boss.phase = Math.floor(Math.random() * 6);
+            boss.phaseTimer = 0;
+            document.getElementById('attack-name').innerText = "PROTOCOL: " + phaseNames[boss.phase];
+        }
+
+        if(boss.phase === 0) { 
+            if(frame % Math.max(2, Math.floor(4/boss.attackSpeed)) === 0) {
+                let angle = frame * 0.03 * boss.attackSpeed;
+                for(let i=0; i<3; i++) { let a = angle + (i * (Math.PI*2)/3); spawnBullet(boss.x, boss.y, Math.cos(a)*10, Math.sin(a)*10, 12, 'normal', '#ff6a00'); }
+            }
+        } 
+        else if(boss.phase === 1) { 
+            if(frame % Math.max(15, Math.floor(30/boss.attackSpeed)) === 0) {
+                let safeZone = Math.random() * canvas.width;
+                for(let i = 0; i < canvas.width; i += 40) { if(Math.abs(i - safeZone) > 80) spawnBullet(i + (Math.random()*10), canvas.height, 0, -6 * boss.attackSpeed, 8, 'normal', '#00ff88'); }
+            }
+        } 
+        else if(boss.phase === 2) { 
+            if(frame % Math.max(30, Math.floor(60/boss.attackSpeed)) === 0) {
+                let gapAngle = Math.random() * Math.PI * 2;
+                for(let i = 0; i < 45; i++) { 
+                    let a = (i/45) * Math.PI * 2;
+                    if(Math.abs(a - gapAngle) > 0.35 && Math.abs(a - gapAngle) < (Math.PI*2 - 0.35)) spawnBullet(boss.x + Math.cos(a)*800, boss.y + Math.sin(a)*800, -Math.cos(a)*4, -Math.sin(a)*4, 10, 'normal', '#b052ff');
+                }
+            }
+        }
+        else if(boss.phase === 3) { 
+            if(frame % Math.max(15, Math.floor(35/boss.attackSpeed)) === 0) spawnBullet(boss.x + (Math.random()*150-75), boss.y, 0, 0, 8, 'homing', '#ffffff');
+        }
+        else if(boss.phase === 4) { 
+            if(frame % Math.max(6, Math.floor(15/boss.attackSpeed)) === 0) {
+                let dx = player.x - boss.x, dy = player.y - boss.y;
+                let baseAngle = Math.atan2(dy, dx);
+                for(let i = -2; i <= 2; i++) { let a = baseAngle + (i * 0.15); spawnBullet(boss.x, boss.y, Math.cos(a)*12, Math.sin(a)*12, 7, 'normal', '#ff3366'); }
+            }
+        }
+        else if(boss.phase === 5) { 
+            player.x += (boss.x - player.x) * 0.015 * boss.attackSpeed; 
+            player.y += (boss.y - player.y) * 0.015 * boss.attackSpeed;
+            if(frame % Math.max(2, Math.floor(4/boss.attackSpeed)) === 0) spawnBullet(Math.random()*canvas.width, 0, (Math.random()-0.5)*8, Math.random()*10 + 5, Math.random()*15 + 5, 'normal', '#555');
+        }
+
+        for(let i = projectiles.length-1; i>=0; i--) {
+            let p = projectiles[i];
+            p.age++;
+
+            if(p.type === 'homing') {
+                if(p.age < 45) { p.x += (Math.random()-0.5) * 4; p.y += (Math.random()-0.5) * 4; } 
+                else if (p.age === 45) { let dx = player.x - p.x, dy = player.y - p.y; let dist = Math.sqrt(dx*dx + dy*dy); p.vx = (dx/dist) * 18; p.vy = (dy/dist) * 18; }
+            }
+
+            p.x += p.vx; p.y += p.vy;
+            ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+
+            let dist = Math.sqrt((p.x-player.x)**2 + (p.y-player.y)**2);
+            if(dist < p.size + player.r - 2 && player.invuln <= 0) {
+                player.hp -= 1;
+                player.invuln = 60; 
+                document.getElementById('life-count').innerText = player.hp;
+                document.getElementById('boss-screen').style.transform = `translate(${Math.random()*20-10}px, ${Math.random()*20-10}px)`;
+                setTimeout(() => document.getElementById('boss-screen').style.transform = 'none', 50);
+                if(player.hp <= 0) { loseGame(); return; }
+            }
+            if(p.x < -100 || p.x > canvas.width+100 || p.y < -100 || p.y > canvas.height+100) projectiles.splice(i, 1);
+        }
+
+        ctx.globalAlpha = (player.invuln > 0 && Math.floor(frame / 5) % 2 === 0) ? 0.3 : 1.0;
+        ctx.fillStyle = "var(--blue)"; ctx.beginPath(); ctx.arc(player.x, player.y, player.r, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1.0; 
+
+        requestAnimationFrame(update);
+    }
+
+    function loseGame() {
+        gameActive = false;
+        document.getElementById('death-screen').style.display = 'flex';
+        document.getElementById('survival-timer').innerText = ((Date.now() - startTime)/1000).toFixed(2);
+        document.body.style.cursor = 'default';
+        const remarks = ["Good effort. But Chuck Norris still won.", "You dodged well, but eventually, you have to blink.", "Almost had him. Time to boot it up again."];
+        document.getElementById('chuck-remark').innerText = remarks[Math.floor(Math.random()*remarks.length)];
+        speakSingleLine("System failure. Chuck Norris wins.");
+    }
+
+    function winGame() {
+        gameActive = false;
+        document.getElementById('death-screen').style.display = 'flex';
+        document.getElementById('end-title').innerText = "LEGEND DEFEATED";
+        document.getElementById('end-title').style.color = "var(--gold)";
+        document.getElementById('survival-timer').innerText = ((Date.now() - startTime)/1000).toFixed(2);
+        document.body.style.cursor = 'default';
+        document.getElementById('chuck-remark').innerText = "Incredible. You actually did it. You beat the meme.";
+        document.getElementById('chuck-remark').style.color = "var(--green)";
+        speakSingleLine("Legend defeated. You win.");
+    }
+</script>
+</body>
+</html>

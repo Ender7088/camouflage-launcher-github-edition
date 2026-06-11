@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Meme-Flight Tycoon</title>
+    <style>
+        :root {
+            --bg: #0d0d0d; --panel: #1a1a1a; --text: #ffffff;
+            --green: #00e676; --red: #ff1744; --blue: #2979ff; --gold: #ffd700;
+        }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        
+        #game-screen { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; max-width: 1200px; margin: 0 auto; }
+        .panel { background: var(--panel); padding: 20px; border-radius: 12px; border: 1px solid #333; }
+
+        /* THE TUBBONS (Tabs/Buttons) */
+        .tab-grid { 
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); 
+            gap: 8px; margin-bottom: 20px; max-height: 200px; overflow-y: auto;
+        }
+        .tubbon {
+            background: #252525; border: 2px solid transparent; color: #888;
+            padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;
+        }
+        .tubbon.active { border-color: var(--blue); color: white; background: #333; }
+        .tubbon.special { border-color: var(--gold); color: var(--gold); }
+
+        /* THE CLICKER AREA */
+        .trading-area { background: #000; padding: 20px; border-radius: 10px; border: 1px solid #222; }
+        .price-display { font-size: 38px; font-weight: bold; color: var(--green); margin: 0; }
+        
+        .clicker-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        button { border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; transition: 0.2s; }
+        button:disabled { background: #333 !important; color: #555 !important; cursor: not-allowed; opacity: 0.5; }
+        
+        .buy-btn { background: var(--green); padding: 15px; font-size: 18px; }
+        .sell-btn { background: var(--red); padding: 15px; font-size: 18px; }
+        
+        canvas { width: 100%; height: 280px; margin-top: 10px; }
+        #news { background: #111; padding: 10px; color: var(--gold); font-size: 13px; margin-top: 10px; border-radius: 5px; min-height: 1.2em; }
+    </style>
+</head>
+<body>
+
+<div id="game-screen">
+    <div class="main-content">
+        <div class="panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 style="color: var(--blue); margin:0;">MEGA EXCHANGE</h2>
+                <h2 style="margin:0;">CASH: <span id="cash-display" style="color: var(--green)">$1000.00</span></h2>
+            </div>
+
+            <div id="tab-container" class="tab-grid"></div>
+
+            <div class="trading-area">
+                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                    <h2 id="full-name-display" style="margin:0; color: var(--blue);">Antonov</h2>
+                    <p id="price-display" class="price-display">$0.00</p>
+                </div>
+                
+                <canvas id="stock-chart" width="600" height="280"></canvas>
+                
+                <p id="owned-display" style="color: #aaa; margin: 10px 0;">Shares Owned: 0</p>
+
+                <div class="clicker-btns">
+                    <button id="buy-1" class="buy-btn" onclick="trade(1, true)">BUY 1</button>
+                    <button id="sell-1" class="sell-btn" onclick="trade(1, false)">SELL 1</button>
+                    <button id="buy-10" style="background:#444; padding:10px;" onclick="trade(10, true)">BUY 10</button>
+                    <button id="sell-10" style="background:#444; padding:10px;" onclick="trade(10, false)">SELL 10</button>
+                </div>
+            </div>
+            <div id="news">>> Welcome to the high-stakes market.</div>
+        </div>
+    </div>
+
+    <div class="side-content">
+        <div class="panel" style="height: 90%;">
+            <h3>PORTFOLIO</h3>
+            <div id="portfolio-list"></div>
+            <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
+            <h3 id="net-worth" style="color: var(--gold);">Net Worth: $1000.00</h3>
+        </div>
+    </div>
+</div>
+
+<script>
+    let cash = 1000.00;
+    let selected = "ANTV";
+    
+    const stockConfigs = [
+        { id: 'ANTV', name: 'Antonov (Full Vodka)', price: 350, vol: 0.05 },
+        { id: 'SPRT', name: 'Spirit (Chaos Air)', price: 15, vol: 0.25 },
+        { id: 'ROOK', name: 'Rookie Pilot', price: 45, vol: 0.15 },
+        { id: 'ATC',  name: 'Screaming ATC', price: 110, vol: 0.06 },
+        { id: 'GOLD', name: 'Solid Gold Bars', price: 900, vol: 0.01 },
+        { id: 'GOOG', name: 'Google', price: 150, vol: 0.03 },
+        { id: 'AMZN', name: 'Amazon', price: 140, vol: 0.03 },
+        { id: 'TECH', name: 'Generic Tech', price: 80, vol: 0.04 },
+        { id: 'WNKA', name: 'Wonka Chocolate', price: 95, vol: 0.07 },
+        { id: 'DOGE', name: 'Dodge Coin', price: 0.60, vol: 0.35 },
+        { id: 'CHUK', name: 'Chuck Norris', price: 9999, vol: 0.001 },
+        { id: 'BURG', name: 'Burger Chain', price: 40, vol: 0.02 },
+        { id: 'SHOP', name: 'Mega Mart', price: 65, vol: 0.03 }
+    ];
+
+    let stocks = {};
+    let portfolio = {};
+
+    stockConfigs.forEach(s => {
+        stocks[s.id] = { ...s, history: Array(50).fill(s.price), momentum: 0 };
+        portfolio[s.id] = 0;
+    });
+
+    function marketTick() {
+        for (let id in stocks) {
+            let s = stocks[id];
+            
+            // Random Meme Events
+            let roll = Math.random();
+            if (id === 'ANTV' && roll > 0.98) s.price *= 1.2; // Sudden vodka boost
+            if (id === 'SPRT' && roll > 0.95) s.price *= 0.6; // Wing fell off
+
+            s.momentum += (Math.random() - 0.5) * 0.01;
+            s.momentum *= 0.9;
+            s.price *= (1 + s.momentum + (Math.random() - 0.5) * s.vol);
+            if (s.price < 0.01) s.price = 0.01;
+            
+            s.history.push(s.price);
+            s.history.shift();
+        }
+        updateUI();
+    }
+
+    function trade(amt, isBuy) {
+        let s = stocks[selected];
+        if (isBuy && cash >= s.price * amt) {
+            cash -= s.price * amt;
+            portfolio[selected] += amt;
+        } else if (!isBuy && portfolio[selected] >= amt) {
+            cash += s.price * amt;
+            portfolio[selected] -= amt;
+        }
+        updateUI();
+    }
+
+    function updateUI() {
+        document.getElementById('cash-display').innerText = "$" + cash.toFixed(2);
+        
+        // Render Tubbons
+        let tabs = "";
+        for (let id in stocks) {
+            let activeClass = id === selected ? "active" : "";
+            let specialClass = (id === 'CHUK' || id === 'ANTV') ? "special" : "";
+            tabs += `<button class="tubbon ${activeClass} ${specialClass}" onclick="selected='${id}';updateUI();">${id}</button>`;
+        }
+        document.getElementById('tab-container').innerHTML = tabs;
+
+        let s = stocks[selected];
+        document.getElementById('full-name-display').innerText = s.name;
+        document.getElementById('price-display').innerText = "$" + s.price.toFixed(2);
+        document.getElementById('owned-display').innerText = "Shares Owned: " + portfolio[selected];
+
+        // Clicker Gray-out logic
+        document.getElementById('buy-1').disabled = cash < s.price;
+        document.getElementById('buy-10').disabled = cash < s.price * 10;
+        document.getElementById('sell-1').disabled = portfolio[selected] < 1;
+        document.getElementById('sell-10').disabled = portfolio[selected] < 10;
+
+        // Portfolio & Net Worth
+        let portHtml = "";
+        let equity = 0;
+        for (let id in portfolio) {
+            if (portfolio[id] > 0) {
+                let val = portfolio[id] * stocks[id].price;
+                equity += val;
+                portHtml += `<p style="font-size:14px; margin:5px 0;">${stocks[id].name}: ${portfolio[id]} <span style="color:var(--green); float:right;">$${val.toFixed(2)}</span></p>`;
+            }
+        }
+        document.getElementById('portfolio-list').innerHTML = portHtml || "No assets.";
+        document.getElementById('net-worth').innerText = "Net Worth: $" + (cash + equity).toFixed(2);
+
+        drawChart();
+    }
+
+    function drawChart() {
+        const canvas = document.getElementById('stock-chart');
+        const ctx = canvas.getContext('2d');
+        const data = stocks[selected].history;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        let min = Math.min(...data) * 0.95;
+        let max = Math.max(...data) * 1.05;
+
+        // GRID LINES
+        ctx.strokeStyle = "#222";
+        for(let i=0; i<=5; i++) {
+            let y = (i/5) * canvas.height;
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            let label = max - (i/5 * (max-min));
+            ctx.fillStyle = "#555"; ctx.font = "10px Arial";
+            ctx.fillText("$" + label.toFixed(2), canvas.width - 50, y - 5);
+        }
+
+        // THE LINE
+        ctx.beginPath();
+        ctx.strokeStyle = data[49] > data[0] ? "#00e676" : "#ff1744";
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 50; i++) {
+            let x = (i / 49) * canvas.width;
+            let y = canvas.height - ((data[i] - min) / (max - min)) * canvas.height;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+    }
+
+    setInterval(marketTick, 2000);
+    updateUI();
+</script>
+
+</body>
+</html>

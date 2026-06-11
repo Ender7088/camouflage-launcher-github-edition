@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Clicker 2: Nuclear Overclock</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@400;700&family=JetBrains+Mono:wght@700&display=swap');
+        
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background-color: #020617;
+            color: #f8fafc;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .game-font { font-family: 'Fredoka One', cursive; }
+        .mono-font { font-family: 'JetBrains Mono', monospace; }
+
+        .orb {
+            transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            background: radial-gradient(circle at 30% 30%, #38bdf8, #1d4ed8);
+            box-shadow: 0 0 40px rgba(56, 189, 248, 0.3);
+        }
+
+        .orb:active { transform: scale(0.85); filter: brightness(1.2); }
+        .orb.surge-active { animation: pulse-gold 0.5s infinite; background: radial-gradient(circle at 30% 30%, #fbbf24, #d97706); }
+
+        @keyframes pulse-gold { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+        .floating-text {
+            position: absolute;
+            pointer-events: none;
+            animation: floatUp 0.7s ease-out forwards;
+            font-weight: bold;
+            z-index: 50;
+        }
+
+        @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-120px); opacity: 0; } }
+
+        .upgrade-card { transition: all 0.2s; border: 1px solid rgba(255,255,255,0.05); }
+        .upgrade-card:not(:disabled):hover { transform: translateY(-2px); background-color: rgba(30, 41, 59, 0.8); border-color: #38bdf8; }
+        .upgrade-card:disabled { opacity: 0.3; filter: grayscale(1); cursor: not-allowed; }
+
+        .shop-scroll::-webkit-scrollbar { width: 4px; }
+        .shop-scroll::-webkit-scrollbar-track { background: transparent; }
+        .shop-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        
+        .tab-active { border-bottom: 3px solid #38bdf8; color: #38bdf8; background: rgba(56, 189, 248, 0.05); }
+
+        .nuclear-glow { animation: nuke-pulse 2s infinite; }
+        @keyframes nuke-pulse { 0%, 100% { box-shadow: 0 0 10px #ef4444; } 50% { box-shadow: 0 0 25px #ef4444; } }
+    </style>
+</head>
+<body class="h-screen flex flex-col lg:flex-row">
+
+    <!-- Left Side: Core -->
+    <div class="flex-1 flex flex-col items-center justify-center p-4 relative bg-[#030712]">
+        <!-- Resource Hub -->
+        <div class="absolute top-4 flex flex-wrap justify-center gap-2 z-20">
+            <div class="bg-slate-900/80 px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2">
+                <span class="text-slate-400">⛓️</span> <span id="res-iron" class="font-bold mono-font text-xs">0</span>
+            </div>
+            <div class="bg-slate-900/80 px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2">
+                <span class="text-amber-400">🪙</span> <span id="res-gold" class="font-bold mono-font text-xs">0</span>
+            </div>
+            <div class="bg-slate-900/80 px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2">
+                <span class="text-purple-400">💎</span> <span id="res-crystal" class="font-bold mono-font text-xs">0</span>
+            </div>
+            <div class="bg-sky-900/40 px-3 py-1.5 rounded-lg border border-sky-500/30 flex items-center gap-2">
+                <span class="text-sky-400">🧬</span> <span id="res-quantum" class="font-bold mono-font text-xs">0</span>
+            </div>
+        </div>
+
+        <div class="text-center mb-10 z-10">
+            <h1 class="text-[10px] uppercase tracking-[0.4em] text-sky-500 font-bold mb-2">Total Energy</h1>
+            <div id="energy-display" class="game-font text-6xl lg:text-8xl text-white">0</div>
+            <div id="eps-display" class="text-sm text-slate-500 font-bold mt-2 uppercase tracking-tighter">Generating 0.0/sec</div>
+        </div>
+
+        <div id="click-orb" class="orb w-56 h-56 lg:w-72 lg:h-72 rounded-full cursor-pointer flex items-center justify-center shadow-2xl relative z-10">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-20 h-20 text-white opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
+        </div>
+
+        <div class="mt-8 text-center z-10">
+            <p id="click-power-display" class="text-xs font-bold text-sky-400 uppercase tracking-widest">Power: +1</p>
+            <div class="w-48 h-1.5 bg-slate-800 rounded-full mt-3 overflow-hidden">
+                <div id="surge-progress" class="h-full bg-amber-500 w-0 transition-all duration-100"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Side: Navigation -->
+    <div class="w-full lg:w-[460px] bg-[#0f172a] flex flex-col border-l border-white/5 h-full relative">
+        <!-- Tabs -->
+        <div class="flex border-b border-white/5 font-bold text-[9px] uppercase tracking-widest overflow-x-auto no-scrollbar">
+            <button onclick="switchTab('energy')" id="tab-energy" class="px-6 py-5 tab-active whitespace-nowrap">Energy</button>
+            <button onclick="switchTab('mining')" id="tab-mining" class="px-6 py-5 text-slate-500 whitespace-nowrap">Mining</button>
+            <button onclick="switchTab('nuclear')" id="tab-nuclear" class="px-6 py-5 text-red-500 whitespace-nowrap relative">
+                ☢️ Harvest
+                <span id="nuke-lock-tag" class="absolute top-1 right-1 text-[7px] bg-red-900 text-red-200 px-1 rounded">1M</span>
+            </button>
+            <button onclick="switchTab('quantum')" id="tab-quantum" class="px-6 py-5 text-sky-500 whitespace-nowrap">🧬 Lab</button>
+            <button onclick="switchTab('prestige')" id="tab-prestige" class="px-6 py-5 text-purple-500 whitespace-nowrap">Dimensional</button>
+        </div>
+
+        <div class="flex-1 overflow-hidden p-5">
+            <!-- Views -->
+            <div id="view-energy" class="space-y-2 h-full overflow-y-auto shop-scroll"></div>
+            <div id="view-mining" class="hidden space-y-2 h-full overflow-y-auto shop-scroll"></div>
+            
+            <!-- Nuclear Harvest View -->
+            <div id="view-nuclear" class="hidden h-full flex flex-col">
+                <div id="nuke-locked" class="flex-1 flex flex-col items-center justify-center text-center p-8">
+                    <div class="text-5xl mb-4 grayscale opacity-30">☢️</div>
+                    <h3 class="game-font text-xl mb-2">Nuclear Zone Locked</h3>
+                    <p class="text-xs text-slate-500 mb-6">Reach 1,000,000 total energy to unlock the silos.</p>
+                    <button onclick="unlockNuclear()" id="btn-unlock-nuke" class="px-8 py-3 bg-red-600 rounded-xl font-bold text-xs uppercase disabled:opacity-30">Unlock Silos (1M Energy)</button>
+                </div>
+                <div id="nuke-active" class="hidden space-y-4 h-full overflow-y-auto pr-2 shop-scroll pb-10">
+                    <div class="bg-red-950/20 border border-red-500/20 p-4 rounded-xl text-center">
+                        <div class="text-2xl mb-1">🚀</div>
+                        <h4 class="font-bold text-red-400 text-sm">Silo Commander</h4>
+                        <p class="text-[10px] text-red-300/60 uppercase">Launch bombs to harvest mass resources instantly.</p>
+                    </div>
+                    <div id="nuke-items" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <!-- Quantum Lab -->
+            <div id="view-quantum" class="hidden space-y-2 h-full overflow-y-auto shop-scroll">
+                <div class="bg-sky-950/20 p-4 rounded-xl border border-sky-500/20 mb-4">
+                    <p class="text-xs text-sky-300 font-bold uppercase text-center">Permanent Upgrades</p>
+                    <p class="text-[10px] text-sky-400/60 text-center">Purchased with Quantum Shards from Prestige</p>
+                </div>
+                <div id="quantum-items" class="space-y-2"></div>
+            </div>
+
+            <!-- Prestige View -->
+            <div id="view-prestige" class="hidden h-full flex flex-col items-center justify-center p-6 text-center">
+                <div class="text-4xl mb-4">🌀</div>
+                <h3 class="game-font text-2xl mb-2">Quantum Prestige</h3>
+                <p class="text-sm text-slate-400 mb-8 max-w-xs">Reset everything except Quantum Upgrades to earn Shards. Your current galaxy is worth:</p>
+                
+                <div class="bg-slate-900 border border-white/5 w-full p-6 rounded-3xl mb-8">
+                    <div class="text-[10px] uppercase tracking-widest text-slate-500 mb-2">Potential Shards</div>
+                    <div id="prestige-gain" class="game-font text-5xl text-sky-400">+0</div>
+                    <div class="mt-4 text-[10px] text-slate-500">Requires 100k+ Total Energy</div>
+                </div>
+
+                <button onclick="prestige()" class="w-full py-4 bg-purple-600 hover:bg-purple-500 rounded-2xl font-bold uppercase tracking-[0.2em] shadow-lg transition-all active:scale-95">Reset Dimension</button>
+            </div>
+        </div>
+
+        <div class="p-4 border-t border-white/5 flex justify-between items-center text-[10px] font-bold">
+            <span id="save-status" class="text-slate-600 uppercase">Saving...</span>
+            <span id="cps-status" class="text-sky-500 uppercase">0 CPS</span>
+        </div>
+    </div>
+
+    <!-- Notification Overlay -->
+    <div id="nuke-result" class="fixed inset-0 z-50 pointer-events-none flex items-center justify-center opacity-0 transition-opacity">
+        <div class="bg-slate-900 border-2 border-red-500 p-10 rounded-3xl text-center shadow-2xl max-w-sm">
+            <div id="nuke-result-icon" class="text-6xl mb-4">💥</div>
+            <h2 id="nuke-result-title" class="game-font text-2xl mb-2">BOOM!</h2>
+            <p id="nuke-result-desc" class="text-sm text-slate-400"></p>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let energy = 0;
+        let totalEnergyEver = 0;
+        let resources = { iron: 0, gold: 0, crystal: 0, quantum: 0 };
+        let activeTab = 'energy';
+        let prestigeCount = 0;
+        let surgeMeter = 0;
+        let activeSurge = false;
+        let nukeUnlocked = false;
+        let lastClicks = [];
+
+        // Data Models
+        const generators = [
+            { id: 'g1', name: 'Nano Drone', base: 15, mult: 1.15, eps: 0.5, count: 0, icon: '🛸' },
+            { id: 'g2', name: 'Thermal Tap', base: 100, mult: 1.16, eps: 2.5, count: 0, icon: '🔥' },
+            { id: 'g3', name: 'Fusion Core', base: 1200, mult: 1.17, eps: 12, count: 0, icon: '⚛️' },
+            { id: 'g4', name: 'Dyson Swarm', base: 15000, mult: 1.18, eps: 75, count: 0, icon: '🛰️' }
+        ];
+
+        const mines = [
+            { id: 'm1', name: 'Surface Pit', base: 500, mult: 1.3, iron: 1, gold: 0, crystal: 0, count: 0, icon: '⛏️' },
+            { id: 'm2', name: 'Deep Shaft', base: 5000, mult: 1.35, iron: 5, gold: 1, crystal: 0, count: 0, icon: '🚜' },
+            { id: 'm3', name: 'Stellar Mine', base: 50000, mult: 1.4, iron: 25, gold: 8, crystal: 2, count: 0, icon: '💎' }
+        ];
+
+        const quantumLabs = [
+            { id: 'q1', name: 'Quantum Overclock', desc: 'All income x2', cost: 1, count: 0, icon: '⚙️' },
+            { id: 'q2', name: 'Matter Synthesis', desc: 'Mines x2 output', cost: 3, count: 0, icon: '🧪' },
+            { id: 'q3', name: 'Power Surge', desc: 'Clicking x5 power', cost: 5, count: 0, icon: '⚡' }
+        ];
+
+        // Bombs: Scale from 20k to 2B
+        const bombs = [];
+        const bombIcons = ['💣', '🧨', '🚀', '☄️', '⚛️', '🌌', '💥'];
+        for(let i=0; i<20; i++) {
+            const minCost = 20000;
+            const maxCost = 2000000000;
+            const cost = minCost * Math.pow(maxCost/minCost, i/19);
+            bombs.push({
+                lvl: i + 1,
+                cost: Math.floor(cost),
+                icon: bombIcons[i % bombIcons.length],
+                power: (i + 1) * 1.5
+            });
+        }
+
+        function init() {
+            loadGame();
+            renderAll();
+            updateDisplay();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function switchTab(tab) {
+            activeTab = tab;
+            ['energy', 'mining', 'nuclear', 'quantum', 'prestige'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                const view = document.getElementById(`view-${t}`);
+                if (btn) btn.className = `px-6 py-5 whitespace-nowrap transition-all ${t === tab ? 'tab-active' : 'text-slate-500'}`;
+                if (view) view.classList.toggle('hidden', t !== tab);
+            });
+        }
+
+        function format(n) {
+            if (n >= 1e12) return (n/1e12).toFixed(2) + 'T';
+            if (n >= 1e9) return (n/1e9).toFixed(2) + 'B';
+            if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
+            if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+            return Math.floor(n).toLocaleString();
+        }
+
+        function renderAll() {
+            // Generators
+            document.getElementById('view-energy').innerHTML = generators.map((g, i) => `
+                <button onclick="buyGen(${i})" id="btn-gen-${i}" class="upgrade-card w-full text-left p-4 bg-slate-900/50 rounded-xl flex items-center gap-4">
+                    <span class="text-2xl">${g.icon}</span>
+                    <div class="flex-1">
+                        <div class="flex justify-between font-bold text-xs"><span>${g.name}</span><span class="text-sky-500">x${g.count}</span></div>
+                        <div class="text-[10px] text-slate-500">⚡ ${format(getCost(g))}</div>
+                    </div>
+                </button>
+            `).join('');
+
+            // Mines
+            document.getElementById('view-mining').innerHTML = mines.map((m, i) => `
+                <button onclick="buyMine(${i})" id="btn-mine-${i}" class="upgrade-card w-full text-left p-4 bg-slate-900/50 rounded-xl flex items-center gap-4">
+                    <span class="text-2xl">${m.icon}</span>
+                    <div class="flex-1">
+                        <div class="flex justify-between font-bold text-xs"><span>${m.name}</span><span class="text-amber-500">Lvl ${m.count}</span></div>
+                        <div class="text-[10px] text-slate-500">⚡ ${format(getMineCost(m))}</div>
+                    </div>
+                </button>
+            `).join('');
+
+            // Bombs
+            document.getElementById('nuke-items').innerHTML = bombs.map((b, i) => `
+                <button onclick="launchBomb(${i})" id="btn-bomb-${i}" class="upgrade-card w-full text-left p-4 bg-red-950/10 rounded-xl flex items-center gap-4 border-red-500/10 hover:border-red-500/40">
+                    <span class="text-2xl">${b.icon}</span>
+                    <div class="flex-1">
+                        <div class="flex justify-between font-bold text-xs text-red-400"><span>Lvl ${b.lvl} Bomb</span></div>
+                        <div class="text-[10px] text-red-300/60 font-mono">COST: ⚡ ${format(b.cost)}</div>
+                    </div>
+                </button>
+            `).join('');
+
+            // Quantum
+            document.getElementById('quantum-items').innerHTML = quantumLabs.map((q, i) => `
+                <button onclick="buyQuantum(${i})" id="btn-q-${i}" class="upgrade-card w-full text-left p-4 bg-sky-950/10 rounded-xl flex items-center gap-4 border-sky-500/10">
+                    <span class="text-2xl">${q.icon}</span>
+                    <div class="flex-1">
+                        <div class="flex justify-between font-bold text-xs text-sky-400"><span>${q.name}</span><span>x${q.count}</span></div>
+                        <div class="text-[10px] text-sky-300/60">${q.desc}</div>
+                        <div class="text-[10px] font-bold text-sky-500">🧬 ${q.cost * (q.count + 1)}</div>
+                    </div>
+                </button>
+            `).join('');
+        }
+
+        function getCost(g) { return Math.floor(g.base * Math.pow(g.mult, g.count)); }
+        function getMineCost(m) { return Math.floor(m.base * Math.pow(m.mult, m.count)); }
+
+        function buyGen(i) {
+            const g = generators[i];
+            const cost = getCost(g);
+            if(energy >= cost) { energy -= cost; g.count++; renderAll(); updateDisplay(); }
+        }
+
+        function buyMine(i) {
+            const m = mines[i];
+            const cost = getMineCost(m);
+            if(energy >= cost) { energy -= cost; m.count++; renderAll(); updateDisplay(); }
+        }
+
+        function buyQuantum(i) {
+            const q = quantumLabs[i];
+            const cost = q.cost * (q.count + 1);
+            if(resources.quantum >= cost) { resources.quantum -= cost; q.count++; renderAll(); updateDisplay(); }
+        }
+
+        function unlockNuclear() {
+            if (energy >= 1000000 || totalEnergyEver >= 1000000) {
+                if(energy >= 1000000) energy -= 1000000;
+                nukeUnlocked = true;
+                document.getElementById('nuke-locked').classList.add('hidden');
+                document.getElementById('nuke-active').classList.remove('hidden');
+                document.getElementById('nuke-lock-tag').classList.add('hidden');
+                updateDisplay();
+            }
+        }
+
+        function launchBomb(i) {
+            const b = bombs[i];
+            if (energy < b.cost) return;
+            energy -= b.cost;
+
+            const roll = Math.random();
+            let resultTitle = "";
+            let resultDesc = "";
+            let resultIcon = "🚀";
+
+            if (roll < 0.1) { // 10% Failure
+                resultTitle = "LAUNCH FAILURE";
+                resultDesc = "The bomb detonated early. No resources gained.";
+                resultIcon = "💨";
+            } else if (roll < 0.11) { // 1% Jackpot
+                const eG = b.cost * 15;
+                const iG = 500 * b.lvl;
+                const gG = 200 * b.lvl;
+                const cG = 50 * b.lvl;
+                energy += eG;
+                resources.iron += iG;
+                resources.gold += gG;
+                resources.crystal += cG;
+                resultTitle = "JACKPOT!";
+                resultDesc = `Silo strike hit a resource vein! +${format(eG)} Energy, +${format(iG)} Iron, +${format(gG)} Gold, +${format(cG)} Crystal!`;
+                resultIcon = "💎";
+            } else { // Standard Success
+                const eG = b.cost * 1.5;
+                const iG = 20 * b.lvl;
+                const gG = 5 * b.lvl;
+                energy += eG;
+                resources.iron += iG;
+                resources.gold += gG;
+                resultTitle = "SUCCESS";
+                resultDesc = `Harvest complete! Recovered ${format(eG)} Energy and raw materials.`;
+                resultIcon = "💥";
+            }
+
+            showNukeResult(resultIcon, resultTitle, resultDesc);
+            updateDisplay();
+        }
+
+        function showNukeResult(icon, title, desc) {
+            const el = document.getElementById('nuke-result');
+            document.getElementById('nuke-result-icon').textContent = icon;
+            document.getElementById('nuke-result-title').textContent = title;
+            document.getElementById('nuke-result-desc').textContent = desc;
+            el.style.opacity = "1";
+            el.style.pointerEvents = "all";
+            setTimeout(() => {
+                el.style.opacity = "0";
+                el.style.pointerEvents = "none";
+            }, 3000);
+        }
+
+        function updateDisplay() {
+            document.getElementById('energy-display').textContent = format(energy);
+            document.getElementById('res-iron').textContent = format(resources.iron);
+            document.getElementById('res-gold').textContent = format(resources.gold);
+            document.getElementById('res-crystal').textContent = format(resources.crystal);
+            document.getElementById('res-quantum').textContent = format(resources.quantum);
+
+            // EPS
+            let qMult = Math.pow(2, quantumLabs[0].count);
+            let eps = generators.reduce((acc, g) => acc + (g.eps * g.count), 0) * qMult;
+            document.getElementById('eps-display').textContent = `Generating ${format(eps)}/sec`;
+
+            // Click
+            let cMult = Math.pow(5, quantumLabs[2].count);
+            let clickP = (1 + (generators[0].count * 0.5) + (generators[1].count * 2)) * cMult;
+            if(activeSurge) clickP *= 3;
+            document.getElementById('click-power-display').textContent = `Power: +${format(clickP)}`;
+
+            // Prestige Gain
+            const gain = totalEnergyEver > 100000 ? Math.floor(Math.sqrt(totalEnergyEver / 100000)) : 0;
+            document.getElementById('prestige-gain').textContent = `+${gain}`;
+
+            // Buttons
+            generators.forEach((g, i) => document.getElementById(`btn-gen-${i}`).disabled = energy < getCost(g));
+            mines.forEach((m, i) => document.getElementById(`btn-mine-${i}`).disabled = energy < getMineCost(m));
+            bombs.forEach((b, i) => document.getElementById(`btn-bomb-${i}`).disabled = energy < b.cost);
+            quantumLabs.forEach((q, i) => document.getElementById(`btn-q-${i}`).disabled = resources.quantum < (q.cost * (q.count + 1)));
+            document.getElementById('btn-unlock-nuke').disabled = energy < 1000000 && totalEnergyEver < 1000000;
+        }
+
+        function handleOrbClick(e) {
+            lastClicks.push(Date.now());
+            let cMult = Math.pow(5, quantumLabs[2].count);
+            let clickP = (1 + (generators[0].count * 0.5) + (generators[1].count * 2)) * cMult;
+            if(activeSurge) clickP *= 3;
+            
+            energy += clickP;
+            totalEnergyEver += clickP;
+            
+            surgeMeter = Math.min(100, surgeMeter + 1);
+            if(surgeMeter >= 100 && !activeSurge) {
+                activeSurge = true;
+                const surgeInt = setInterval(() => {
+                    surgeMeter -= 1;
+                    document.getElementById('surge-progress').style.width = surgeMeter + '%';
+                    if(surgeMeter <= 0) { clearInterval(surgeInt); activeSurge = false; }
+                }, 100);
+            }
+            
+            const x = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+            const y = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+            createFloat(x, y, `+${format(clickP)}`);
+            updateDisplay();
+        }
+
+        function createFloat(x, y, text) {
+            const d = document.createElement('div');
+            d.className = 'floating-text game-font text-sky-400';
+            d.style.left = x + 'px'; d.style.top = y + 'px';
+            d.textContent = text;
+            document.body.appendChild(d);
+            setTimeout(() => d.remove(), 700);
+        }
+
+        function gameLoop(time) {
+            const dt = 1/60;
+            let qMult = Math.pow(2, quantumLabs[0].count);
+            let eps = generators.reduce((acc, g) => acc + (g.eps * g.count), 0) * qMult;
+            energy += eps * dt;
+            totalEnergyEver += eps * dt;
+
+            // Mining Logic
+            const mMult = Math.pow(2, quantumLabs[1].count);
+            mines.forEach(m => {
+                resources.iron += (m.iron * m.count * mMult) * dt;
+                resources.gold += (m.gold * m.count * mMult) * dt;
+                resources.crystal += (m.crystal * m.count * mMult) * dt;
+            });
+
+            const now = Date.now();
+            lastClicks = lastClicks.filter(t => now - t < 1000);
+            document.getElementById('cps-status').textContent = `${lastClicks.length} CPS`;
+            
+            if(!activeSurge) document.getElementById('surge-progress').style.width = surgeMeter + '%';
+            updateDisplay();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function prestige() {
+            const gain = totalEnergyEver > 100000 ? Math.floor(Math.sqrt(totalEnergyEver / 100000)) : 0;
+            if(gain < 1) return alert("You need at least 100,000 Total Energy to Prestige!");
+            if(confirm(`Reset dimension for ${gain} Quantum Shards?`)) {
+                resources.quantum += gain;
+                energy = 0; totalEnergyEver = 0;
+                generators.forEach(g => g.count = 0);
+                mines.forEach(m => m.count = 0);
+                nukeUnlocked = false;
+                document.getElementById('nuke-locked').classList.remove('hidden');
+                document.getElementById('nuke-active').classList.add('hidden');
+                document.getElementById('nuke-lock-tag').classList.remove('hidden');
+                renderAll();
+                saveGame();
+            }
+        }
+
+        function saveGame() {
+            const d = { energy, totalEnergyEver, resources, nukeUnlocked, gens: generators.map(g => g.count), mines: mines.map(m => m.count), quants: quantumLabs.map(q => q.count) };
+            localStorage.setItem('sc2_nuke_save', JSON.stringify(d));
+        }
+
+        function loadGame() {
+            const s = localStorage.getItem('sc2_nuke_save');
+            if(s) {
+                const d = JSON.parse(s);
+                energy = d.energy; totalEnergyEver = d.totalEnergyEver; resources = d.resources; nukeUnlocked = d.nukeUnlocked;
+                d.gens.forEach((c, i) => generators[i].count = c);
+                d.mines.forEach((c, i) => mines[i].count = c);
+                d.quants.forEach((c, i) => quantumLabs[i].count = c);
+                if(nukeUnlocked) {
+                    document.getElementById('nuke-locked').classList.add('hidden');
+                    document.getElementById('nuke-active').classList.remove('hidden');
+                    document.getElementById('nuke-lock-tag').classList.add('hidden');
+                }
+            }
+        }
+
+        document.getElementById('click-orb').addEventListener('mousedown', handleOrbClick);
+        init();
+    </script>
+</body>
+</html>

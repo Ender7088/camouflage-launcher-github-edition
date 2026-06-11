@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>emu - Google Search</title>
+    <link rel="icon" type="image/png" href="tab.png">
+    <style>
+        /* --- EMBEDDED CSS --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Roboto', sans-serif; }
+        body { background: #0e141f; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        .header {
+            height: 60px; background: #00b500; border-bottom: 5px solid #fff;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 20px; z-index: 10;
+        }
+        .header-title { color: white; font-weight: bold; font-size: 1.2rem; }
+        .controls { display: flex; gap: 12px; }
+        
+        .control-btn {
+            padding: 8px 16px; border-radius: 8px; border: 3px solid white;
+            background: rgba(0,0,0,0.2); color: white; cursor: pointer;
+            font-weight: bold; font-size: 0.9rem; transition: 0.2s;
+        }
+        .control-btn:hover { background: white; color: #00b500; }
+        .exit-btn { background: #ff4444; border-color: #ff4444; }
+
+        .container { display: flex; flex: 1; height: calc(100vh - 60px); }
+
+        .sidebar {
+            width: 260px; background: #161f16; border-right: 5px solid #00b500;
+            padding: 20px; display: flex; flex-direction: column; gap: 15px;
+        }
+        .sidebar-label { color: #888; font-size: 0.7rem; font-weight: bold; letter-spacing: 1px; }
+        
+        .side-btn {
+            width: 100%; padding: 14px; background: #00b500; color: white;
+            border: 4px solid #fff; border-radius: 12px; cursor: pointer;
+            font-weight: bold; font-size: 1rem; text-align: left;
+            display: flex; align-items: center; gap: 12px;
+            transition: 0.1s;
+        }
+        .side-btn:hover { transform: scale(1.03); background: #00d100; }
+        .side-btn img { width: 24px; height: 24px; border-radius: 4px; }
+
+        .game-window { flex: 1; background: #000; position: relative; display: flex; align-items: center; justify-content: center; }
+        #gameFrame { width: 100%; height: 100%; border: none; display: none; }
+        #displayImg { max-width: 100%; max-height: 100%; display: none; object-fit: contain; }
+        
+        .welcome {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: #444; text-align: center; font-size: 1.3rem; font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="header-title">EMU LAUNCHER</div>
+        <div class="controls">
+            <button class="control-btn" onclick="toggleFullscreen()">FULL SCREEN</button>
+            <button class="control-btn exit-btn" onclick="location.href='starter.html'">BACK</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="sidebar-label">GAME SOURCES</div>
+            
+            <button class="side-btn" onclick="loadUrl('https://pizzaedition.win/g/')">
+                <img src="https://pizzaedition.win/favicon.ico">
+                Pizza Edition
+            </button>
+
+            <button class="side-btn" onclick="loadUrl('https://freezenova.com/')">
+                <img src="https://freezenova.com/favicon.ico" onerror="this.src='https://cdn-icons-png.flaticon.com/512/5260/5260472.png'">
+                Freeze Nova
+            </button>
+
+            <button class="side-btn" onclick="openEmuDisguise()">
+                <img src="https://www.google.com/favicon.ico">
+                View Emu Image
+            </button>
+        </div>
+
+        <div class="game-window" id="gameWindow">
+            <div id="welcomeMsg" class="welcome">
+                <p>CHOOSE A SOURCE FROM THE SIDEBAR <br> TO BEGIN PLAYING</p>
+            </div>
+            <iframe id="gameFrame" allowfullscreen allow="autoplay; fullscreen; keyboard"></iframe>
+            <img id="displayImg" src="" alt="Emu Image">
+        </div>
+    </div>
+
+    <script>
+        /* --- EMBEDDED JAVASCRIPT --- */
+
+        function loadUrl(url) {
+            // Hide welcome screen and any images
+            document.getElementById('welcomeMsg').style.display = 'none';
+            document.getElementById('displayImg').style.display = 'none';
+            
+            const frame = document.getElementById('gameFrame');
+            frame.style.display = 'block';
+            frame.src = url;
+        }
+
+        function openEmuDisguise() {
+            const emuSearchUrl = "https://www.google.com/search?sca_esv=c1aee945acc89b8a&rlz=1CAOVJJ_enUS1177&udm=2&fbs=ADc_l-aN0CWEZBOHjofHoaMMDiKpaEWjvZ2Py1XXV8d8KvlI3o6iwGk6Iv1tRbZIBNIVs-6UIUc6UR6SuJFZzmDZDaBCXj3NZJ_DMK_QqUo9V0IfjxG0djCU7QE8UjOr-c7mvKigPhpvaXtoXoq0sQm2jQ3nzq77_uwAjFIqozM0PiKt77NrjKZEM9xM-iXmZlOhSxVOhlRJPU9KCXU7f3N6KQp_hUzZCw&q=emu&sa=X&ved=2ahUKEwitqZfE1KmTAxXPEFkFHZRcMFkQtKgLegQIHRAB&biw=1366&bih=647&dpr=1&tbs=sur%3Acl&safe=active&ssui=on";
+            
+            // Open the actual Google Search in a new tab
+            window.open(emuSearchUrl, '_blank');
+            
+            // Close the current game launcher tab
+            window.close();
+
+            // Backup redirect if window.close is blocked by browser settings
+            setTimeout(() => {
+                window.location.href = emuSearchUrl;
+            }, 150);
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Logic to handle potential blob or data-uri loads if needed by sources
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'loadBlob') {
+                loadUrl(event.data.blobUrl);
+            }
+        });
+    </script>
+</body>
+</html>

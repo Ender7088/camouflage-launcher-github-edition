@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprocket Survivor Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0a0a0a; font-family: 'Inter', sans-serif; touch-action: none; color: white; }
+        canvas { display: block; image-rendering: pixelated; }
+        .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .interactable { pointer-events: auto; }
+        .menu-bg { background: rgba(10, 10, 10, 0.95); backdrop-filter: blur(12px); }
+        .rarity-common { border-color: #9ca3af; color: #9ca3af; }
+        .rarity-rare { border-color: #3b82f6; color: #3b82f6; }
+        .rarity-epic { border-color: #a855f7; color: #a855f7; }
+        .rarity-legendary { border-color: #eab308; color: #eab308; }
+        .rarity-mythic { border-color: #ef4444; color: #ef4444; text-shadow: 0 0 10px #ef4444; }
+        
+        @keyframes pulse-clear {
+            0% { background: rgba(59, 130, 246, 0); }
+            50% { background: rgba(59, 130, 246, 0.2); }
+            100% { background: rgba(59, 130, 246, 0); }
+        }
+        .wave-clear-flash { animation: pulse-clear 0.5s ease-out; }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+    <div id="flash-overlay" class="ui-layer w-full h-full"></div>
+
+    <!-- HUD -->
+    <div id="hud" class="ui-layer hidden flex flex-col items-center p-4">
+        <div class="w-full max-w-4xl flex justify-between items-center bg-black/60 p-4 rounded-2xl border border-white/10 shadow-2xl">
+            <div class="flex flex-col gap-1">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-black uppercase tracking-tighter text-red-500">Hull Integrity</span>
+                    <span id="hp-text" class="text-xs font-bold text-white">100/100</span>
+                </div>
+                <div class="w-48 h-3 bg-gray-900 rounded-full border border-white/5 overflow-hidden">
+                    <div id="hp-bar" class="h-full bg-gradient-to-r from-red-600 to-orange-500 transition-all" style="width: 100%;"></div>
+                </div>
+            </div>
+            
+            <div class="flex flex-col items-center">
+                <div id="timer" class="text-3xl font-black italic tracking-widest tabular-nums">00:00</div>
+                <div class="flex gap-4 mt-1">
+                    <span id="gold-display" class="text-yellow-400 font-bold text-sm">🪙 0</span>
+                    <span id="wave-display" class="text-blue-400 font-bold text-sm uppercase">Wave 1</span>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-end gap-1">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-black uppercase tracking-tighter text-blue-400">Data Link LVL <span id="lvl-val">1</span></span>
+                </div>
+                <div class="w-48 h-2 bg-gray-900 rounded-full overflow-hidden">
+                    <div id="xp-bar" class="h-full bg-blue-500 shadow-[0_0_10px_#3b82f6]" style="width: 0%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Character Selection -->
+    <div id="char-select" class="ui-layer flex items-center justify-center p-6 menu-bg">
+        <div class="interactable max-w-4xl w-full text-center">
+            <h1 class="text-5xl font-black italic mb-2 tracking-tighter text-white">SELECT CHASSIS</h1>
+            <p class="text-gray-500 mb-10 uppercase tracking-[0.2em] text-sm">Initialize your combat sequence</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="char-list">
+                <!-- Chars injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Shop / Upgrade Menu -->
+    <div id="shop-menu" class="ui-layer hidden items-center justify-center p-6 menu-bg">
+        <div class="interactable max-w-5xl w-full">
+            <div class="flex justify-between items-end mb-6">
+                <div>
+                    <h2 class="text-4xl font-black italic text-white uppercase">Arsenal Upgrade</h2>
+                    <p class="text-gray-400">Upgrade stats or acquire new weaponry</p>
+                </div>
+                <div class="text-right">
+                    <div class="text-2xl font-bold text-yellow-400">🪙 <span id="shop-gold">0</span></div>
+                    <button id="reroll-btn" class="mt-2 px-4 py-1 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold transition-colors">REROLL (🪙 100)</button>
+                </div>
+            </div>
+            
+            <div id="shop-items" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <!-- Shop items injected here -->
+            </div>
+
+            <div class="flex justify-center">
+                <button id="resume-btn" class="px-12 py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl uppercase italic tracking-widest transition-all">Continue Mission</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over -->
+    <div id="game-over" class="ui-layer hidden flex-col items-center justify-center bg-black/90">
+        <h1 class="text-8xl font-black text-red-600 mb-2 italic">DECOMMISSIONED</h1>
+        <p id="final-stats" class="text-white/60 mb-12 text-xl font-mono uppercase"></p>
+        <button onclick="location.reload()" class="interactable px-12 py-5 bg-white text-black font-black rounded-2xl hover:bg-yellow-400 transition-all uppercase tracking-widest text-lg">Reboot System</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const hud = document.getElementById('hud');
+        
+        // Game constants & State
+        let width, height, lastTime = 0, gameActive = false, paused = false;
+        let gold = 0, wave = 1, totalSeconds = 0, spawnTimer = 0, lastTick = 0;
+        const keys = {};
+
+        const RARITIES = [
+            { name: 'Common', color: '#9ca3af', weight: 200 },
+            { name: 'Rare', color: '#3b82f6', weight: 30 },
+            { name: 'Epic', color: '#a855f7', weight: 10 },
+            { name: 'Legendary', color: '#eab308', weight: 1 },
+            { name: 'Mythic', color: '#ef4444', weight: 0.2 }
+        ];
+
+        const player = {
+            x: 0, y: 0, size: 18,
+            hp: 200, maxHp: 200, speed: 4,
+            xp: 0, lvl: 1, xpToNext: 40,
+            damageMult: 0.75, 
+            fireRateMult: 0.8, luck: 5,
+            weapons: [] 
+        };
+
+        const CHARACTERS = [
+            { id: 'tank', name: 'Tank', icon: '🛡️', hp: 300, speed: 3.5, dmg: 0.6, desc: 'Heavily armored and sturdy.' },
+            { id: 'scout', name: 'Viper', icon: '⚡', hp: 150, speed: 6.0, dmg: 0.5, desc: 'Extremely agile chassis.' },
+            { id: 'brawler', name: 'Titan', icon: '🥊', hp: 200, speed: 4.5, dmg: 1.0, desc: 'Engineered for maximum force.' }
+        ];
+
+        const BASE_WEAPONS = [
+            { name: 'Auto-Cannon', type: 'bullet', rate: 400, dmg: 15, range: 133, speed: 10 },
+            { name: 'Heavy Slugger', type: 'slug', rate: 1000, dmg: 60, range: 150, speed: 8 },
+            { name: 'Needler', type: 'needle', rate: 150, dmg: 8, range: 116, speed: 14 },
+            { name: 'Ion Blaster', type: 'ion', rate: 700, dmg: 35, range: 183, speed: 12 },
+            { name: 'Plasma Bow', type: 'plasma', rate: 800, dmg: 50, range: 166, speed: 11 },
+            { name: 'Sonic Pulse', type: 'sonic', rate: 500, dmg: 25, range: 100, speed: 9 },
+            { name: 'Rail Gun', type: 'rail', rate: 1500, dmg: 180, range: 233, speed: 20 },
+            { name: 'Auto-Crossbow', type: 'bolt', rate: 300, dmg: 20, range: 140, speed: 13 }
+        ];
+
+        const enemies = [], bullets = [], particles = [], gems = [];
+
+        window.onkeydown = e => keys[e.code] = true;
+        window.onkeyup = e => keys[e.code] = false;
+
+        function init() {
+            resize();
+            renderCharSelect();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.onresize = resize;
+
+        function renderCharSelect() {
+            const list = document.getElementById('char-list');
+            list.innerHTML = '';
+            CHARACTERS.forEach(c => {
+                const card = document.createElement('div');
+                card.className = 'bg-white/5 border border-white/10 p-8 rounded-3xl hover:border-blue-500 hover:bg-blue-500/10 transition-all cursor-pointer group interactable';
+                card.innerHTML = `
+                    <div class="text-6xl mb-4 group-hover:scale-110 transition-transform">${c.icon}</div>
+                    <div class="text-2xl font-black italic mb-2">${c.name}</div>
+                    <div class="text-gray-400 text-sm mb-4">${c.desc}</div>
+                    <div class="flex justify-center gap-4 text-xs font-bold text-blue-400 uppercase">
+                        <span>HP: ${c.hp}</span>
+                        <span>SPD: ${c.speed}</span>
+                    </div>
+                `;
+                card.onclick = () => startGame(c);
+                list.appendChild(card);
+            });
+        }
+
+        function startGame(char) {
+            player.hp = player.maxHp = char.hp;
+            player.speed = char.speed;
+            player.damageMult = char.dmg;
+            player.x = width / 2;
+            player.y = height / 2;
+            player.weapons = [];
+            player.weapons.push(generateWeapon(0)); 
+            document.getElementById('char-select').classList.add('hidden');
+            hud.classList.remove('hidden');
+            gameActive = true;
+        }
+
+        function generateWeapon(forceRarity = -1) {
+            const base = BASE_WEAPONS[Math.floor(Math.random() * BASE_WEAPONS.length)];
+            let rarityIdx = forceRarity;
+            if (rarityIdx === -1) {
+                const roll = Math.random() * 150 - (player.luck * 2);
+                if (roll < 5) rarityIdx = 4;
+                else if (roll < 15) rarityIdx = 3;
+                else if (roll < 35) rarityIdx = 2;
+                else if (roll < 70) rarityIdx = 1;
+                else rarityIdx = 0;
+            }
+            const r = RARITIES[rarityIdx];
+            const multiplier = 1 + (rarityIdx * 0.5);
+            return {
+                ...base,
+                id: Math.random().toString(36),
+                rarity: r,
+                rarityIdx: rarityIdx,
+                dmg: Math.round(base.dmg * multiplier),
+                rate: Math.round(base.rate / (1 + rarityIdx * 0.1)),
+                lastShot: 0,
+                cost: Math.round(80 * (rarityIdx + 1) * multiplier)
+            };
+        }
+
+        function spawnEnemy() {
+            if (!gameActive || paused) return;
+            if (wave === 10 && !enemies.some(e => e.isBoss)) { spawnSpecialEnemy('MiniBoss'); return; }
+            if (wave === 20 && !enemies.some(e => e.isBoss)) { spawnSpecialEnemy('FinalBoss'); return; }
+
+            const side = Math.floor(Math.random() * 4);
+            let x, y;
+            if (side === 0) { x = Math.random() * width; y = -50; }
+            else if (side === 1) { x = width + 50; y = Math.random() * height; }
+            else if (side === 2) { x = Math.random() * width; y = height + 50; }
+            else { x = -50; y = Math.random() * height; }
+
+            const types = ['Standard'];
+            if (wave > 2) types.push('Scout', 'Swarm');
+            if (wave > 5) types.push('Bruiser');
+            if (wave > 8) types.push('Elite');
+            const type = types[Math.floor(Math.random() * types.length)];
+            
+            // INCREASED: 4x Health Modifier applied to base scaling
+            let hp = (10 + (wave * 3)) * 4; 
+            let speed = 1.6 + (wave * 0.1);
+            let size = 16;
+            let color = '#ef4444';
+            let xp = 15;
+
+            switch(type) {
+                case 'Scout': hp *= 0.5; speed *= 1.5; color = '#fbbf24'; size = 12; break;
+                case 'Bruiser': hp *= 3; speed *= 0.6; color = '#7f1d1d'; size = 24; break;
+                case 'Swarm': hp *= 0.3; speed *= 1.2; color = '#f87171'; size = 8; xp = 5; break;
+                case 'Elite': hp *= 2; speed *= 1.1; color = '#991b1b'; size = 20; xp = 40; break;
+            }
+
+            enemies.push({ x, y, hp, maxHp: hp, speed, size, color, xp, type });
+        }
+
+        function spawnSpecialEnemy(rank) {
+            const x = width / 2;
+            const y = -100;
+            let hp, size, name, color;
+            if (rank === 'MiniBoss') {
+                name = "Sprocket Sentinel";
+                // INCREASED: 4x Health for Bosses
+                hp = (2000 + (wave * 200)) * 4;
+                size = 50;
+                color = '#a855f7';
+            } else {
+                name = "Core Eradicator";
+                // INCREASED: 4x Health for Bosses
+                hp = (8000 + (wave * 500)) * 4;
+                size = 80;
+                color = '#ffffff';
+            }
+            enemies.push({ x, y, hp, maxHp: hp, speed: 1.2, size, color, xp: rank === 'MiniBoss' ? 500 : 2000, isBoss: true, name });
+        }
+
+        function resetRound() {
+            const flash = document.getElementById('flash-overlay');
+            flash.classList.add('wave-clear-flash');
+            setTimeout(() => flash.classList.remove('wave-clear-flash'), 500);
+            for(let i = enemies.length-1; i >= 0; i--) { if(!enemies[i].isBoss) enemies.splice(i, 1); }
+            bullets.length = 0;
+            createExplosion(player.x, player.y, '#3b82f6');
+        }
+
+        function levelUp() {
+            player.xp -= player.xpToNext;
+            player.lvl++;
+            player.xpToNext = Math.floor(player.xpToNext * 1.15);
+            openShop();
+        }
+
+        function openShop() {
+            paused = true;
+            document.getElementById('shop-menu').classList.remove('hidden');
+            document.getElementById('shop-gold').innerText = gold;
+            renderShopItems();
+        }
+
+        function renderShopItems() {
+            const container = document.getElementById('shop-items');
+            container.innerHTML = '';
+            for (let i = 0; i < 4; i++) {
+                const isWeapon = Math.random() > 0.4;
+                const item = isWeapon ? generateWeapon() : generateStatUpgrade();
+                const card = document.createElement('div');
+                card.className = `bg-white/5 border-2 p-4 rounded-xl flex flex-col justify-between transition-all rarity-${item.rarity.name.toLowerCase()} interactable`;
+                card.innerHTML = `
+                    <div>
+                        <div class="text-[10px] uppercase font-black opacity-50 mb-1">${item.rarity.name}</div>
+                        <div class="text-lg font-black italic leading-tight mb-2">${item.name}</div>
+                        <div class="text-xs text-gray-400 mb-4">${item.desc || `Dmg: ${item.dmg} | Rate: ${item.rate}ms`}</div>
+                    </div>
+                    <button class="w-full py-2 bg-white/10 hover:bg-white text-xs font-bold rounded-lg transition-all hover:text-black ${gold < item.cost ? 'opacity-30 pointer-events-none' : ''}">
+                        🪙 ${item.cost}
+                    </button>
+                `;
+                card.querySelector('button').onclick = () => {
+                    if (gold >= item.cost) {
+                        gold -= item.cost;
+                        if (isWeapon) player.weapons.push(item);
+                        else item.effect();
+                        document.getElementById('shop-gold').innerText = gold;
+                        renderShopItems();
+                        updateHUD();
+                    }
+                };
+                container.appendChild(card);
+            }
+        }
+
+        function generateStatUpgrade() {
+            const stats = [
+                { name: 'Armor Plating', desc: '+50 Max HP', effect: () => { player.maxHp += 50; player.hp += 50; }, rarity: RARITIES[0] },
+                { name: 'Overclock', desc: '+20% Move Speed', effect: () => player.speed *= 1.2, rarity: RARITIES[1] },
+                { name: 'Luck Module', desc: '+10 Luck', effect: () => player.luck += 10, rarity: RARITIES[2] },
+                { name: 'Power Cell', desc: '+40% Damage', effect: () => player.damageMult *= 1.4, rarity: RARITIES[3] }
+            ];
+            const s = stats[Math.floor(Math.random() * stats.length)];
+            return { ...s, cost: 120 };
+        }
+
+        document.getElementById('reroll-btn').onclick = () => { if (gold >= 100) { gold -= 100; document.getElementById('shop-gold').innerText = gold; renderShopItems(); } };
+        document.getElementById('resume-btn').onclick = () => { document.getElementById('shop-menu').classList.add('hidden'); paused = false; };
+
+        function gameLoop(timestamp) {
+            const dt = timestamp - lastTime;
+            lastTime = timestamp;
+            if (gameActive && !paused) update(dt, timestamp);
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update(dt, timestamp) {
+            let mx = 0, my = 0;
+            if (keys['KeyW'] || keys['ArrowUp']) my--;
+            if (keys['KeyS'] || keys['ArrowDown']) my++;
+            if (keys['KeyA'] || keys['ArrowLeft']) mx--;
+            if (keys['KeyD'] || keys['ArrowRight']) mx++;
+            if (mx !== 0 || my !== 0) {
+                const m = Math.sqrt(mx*mx + my*my);
+                player.x += (mx/m) * player.speed;
+                player.y += (my/m) * player.speed;
+            }
+            player.x = Math.max(player.size, Math.min(width - player.size, player.x));
+            player.y = Math.max(player.size, Math.min(height - player.size, player.y));
+
+            spawnTimer += dt;
+            if (spawnTimer > Math.max(200, 1200 - (wave * 30))) { spawnEnemy(); spawnTimer = 0; }
+
+            if (timestamp - lastTick >= 1000) {
+                totalSeconds++; lastTick = timestamp;
+                const m = Math.floor(totalSeconds / 60);
+                const s = totalSeconds % 60;
+                document.getElementById('timer').innerText = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+                if (totalSeconds % 30 === 0) { wave++; document.getElementById('wave-display').innerText = `Wave ${wave}`; resetRound(); }
+            }
+
+            const now = Date.now();
+            player.weapons.forEach(w => {
+                if (now - w.lastShot > (w.rate * player.fireRateMult)) {
+                    let target = null, dist = w.range;
+                    enemies.forEach(e => {
+                        const d = Math.sqrt((e.x-player.x)**2 + (e.y-player.y)**2);
+                        if (d < dist) { dist = d; target = e; }
+                    });
+                    if (target) {
+                        const angle = Math.atan2(target.y - player.y, target.x - player.x);
+                        bullets.push({ x: player.x, y: player.y, vx: Math.cos(angle) * w.speed, vy: Math.sin(angle) * w.speed, dmg: w.dmg * player.damageMult, color: w.rarity.color, life: 1200 });
+                        w.lastShot = now;
+                    }
+                }
+            });
+
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i]; b.x += b.vx; b.y += b.vy; b.life -= dt;
+                if (b.life <= 0) { bullets.splice(i, 1); continue; }
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const e = enemies[j];
+                    if (Math.sqrt((b.x-e.x)**2 + (b.y-e.y)**2) < e.size) {
+                        e.hp -= b.dmg; bullets.splice(i, 1);
+                        if (e.hp <= 0) {
+                            gold += Math.floor(e.xp / 2) + Math.floor(Math.random() * 5);
+                            gems.push({ x: e.x, y: e.y, xp: e.xp });
+                            createExplosion(e.x, e.y, e.color);
+                            enemies.splice(j, 1);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            enemies.forEach(e => {
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                e.x += Math.cos(angle) * e.speed; e.y += Math.sin(angle) * e.speed;
+                if (Math.sqrt((e.x-player.x)**2 + (e.y-player.y)**2) < e.size + player.size) {
+                    player.hp -= 0.225; updateHUD();
+                    if (player.hp <= 0) endGame();
+                }
+            });
+
+            for (let i = gems.length - 1; i >= 0; i--) {
+                const g = gems[i]; const d = Math.sqrt((g.x-player.x)**2 + (g.y-player.y)**2);
+                if (d < 150) { const a = Math.atan2(player.y - g.y, player.x - g.x); g.x += Math.cos(a) * 8; g.y += Math.sin(a) * 8; }
+                if (d < player.size + 15) { player.xp += g.xp; gems.splice(i, 1); if (player.xp >= player.xpToNext) levelUp(); updateHUD(); }
+            }
+        }
+
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 12; i++) { particles.push({ x, y, vx: (Math.random()-0.5)*8, vy: (Math.random()-0.5)*8, life: 1, color, size: Math.random()*5+1 }); }
+        }
+
+        function updateHUD() {
+            document.getElementById('hp-bar').style.width = (player.hp/player.maxHp * 100) + '%';
+            document.getElementById('hp-text').innerText = `${Math.ceil(player.hp)} / ${player.maxHp}`;
+            document.getElementById('xp-bar').style.width = (player.xp/player.xpToNext * 100) + '%';
+            document.getElementById('gold-display').innerText = `🪙 ${gold}`;
+            document.getElementById('lvl-val').innerText = player.lvl;
+        }
+
+        function endGame() { gameActive = false; document.getElementById('game-over').classList.remove('hidden'); document.getElementById('final-stats').innerText = `Waves: ${wave} | Level: ${player.lvl} | Gold: ${gold}`; }
+
+        function draw() {
+            ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, width, height);
+            ctx.strokeStyle = '#151515'; ctx.lineWidth = 1;
+            for(let x=0; x<width; x+=60) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,height); ctx.stroke(); }
+            for(let y=0; y<height; y+=60) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(width,y); ctx.stroke(); }
+            ctx.fillStyle = '#3b82f6'; gems.forEach(g => { ctx.beginPath(); ctx.arc(g.x, g.y, 4, 0, Math.PI*2); ctx.fill(); });
+            particles.forEach((p, i) => {
+                ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+                p.x += p.vx; p.y += p.vy; p.life -= 0.03; if (p.life <= 0) particles.splice(i, 1);
+            });
+            ctx.globalAlpha = 1;
+            bullets.forEach(b => { ctx.shadowBlur = 10; ctx.shadowColor = b.color; ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0; });
+            enemies.forEach(e => {
+                ctx.fillStyle = e.color; ctx.beginPath();
+                if (e.isBoss) {
+                    ctx.shadowBlur = 20; ctx.shadowColor = e.color; ctx.rect(e.x - e.size, e.y - e.size, e.size * 2, e.size * 2); ctx.fill(); ctx.shadowBlur = 0;
+                    const barW = e.size * 3; ctx.fillStyle = '#111'; ctx.fillRect(e.x - barW/2, e.y - e.size - 20, barW, 8);
+                    ctx.fillStyle = e.color; ctx.fillRect(e.x - barW/2, e.y - e.size - 20, barW * (e.hp/e.maxHp), 8);
+                    ctx.font = 'bold 12px Inter'; ctx.textAlign = 'center'; ctx.fillText(e.name, e.x, e.y - e.size - 25);
+                } else {
+                    ctx.moveTo(e.x, e.y - e.size); ctx.lineTo(e.x + e.size, e.y + e.size); ctx.lineTo(e.x - e.size, e.y + e.size); ctx.closePath(); ctx.fill();
+                }
+            });
+            if (gameActive) {
+                ctx.fillStyle = 'white'; ctx.shadowBlur = 20; ctx.shadowColor = '#3b82f6';
+                ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+                ctx.strokeStyle = 'rgba(59, 130, 246, 0.1)'; ctx.beginPath();
+                const maxR = player.weapons.reduce((m, w) => Math.max(m, w.range), 0);
+                ctx.arc(player.x, player.y, maxR, 0, Math.PI*2); ctx.stroke();
+                ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(player.x - 5, player.y - 2, 2, 0, Math.PI*2); ctx.arc(player.x + 5, player.y - 2, 2, 0, Math.PI*2); ctx.fill();
+            }
+        }
+        init();
+    </script>
+</body>
+</html>
