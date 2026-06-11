@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Classroom Portal: FNAF Collection (Restored)</title> 
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; }
+        #nav-bar {
+            height: auto; min-height: 50px; background: #1a1a1a;
+            display: flex; flex-wrap: wrap; align-items: center;
+            justify-content: center; gap: 6px; border-bottom: 2px solid #333;
+            padding: 8px;
+        }
+        button {
+            padding: 6px 10px; cursor: pointer; background: #444; color: white;
+            border: 1px solid #666; border-radius: 4px; font-size: 11px; font-weight: bold;
+        }
+        button.active { background: #b71c1c; border-color: #ff5252; }
+        .pe-btn { border-color: #ffeb3b; color: #ffeb3b; }
+        .fixed-btn { border-color: #00e676; color: #00e676; }
+        .tool-btn { background: #007bff; border: none; }
+        .reload-btn { background: #28a745; border: none; }
+        .tab-btn { background: #6a1b9a; border: none; }
+
+        #container { width: 100vw; height: calc(100vh - 80px); position: relative; }
+        iframe { width: 100%; height: 100%; border: none; }
+    </style>
+</head>
+<body>
+
+    <div id="nav-bar">
+        <button id="btn1" onclick="loadGame(1)" class="active">FNAF 1</button>
+        <button id="btn2" onclick="loadGame(2)">FNAF 2</button>
+        <button id="btn3" onclick="loadGame(3)">FNAF 3</button>
+        <button id="btn4" onclick="loadGame(4)">FNAF 4</button>
+        
+        <button id="btn3PE" class="pe-btn" onclick="loadGame('3PE')">FNAF 3 PE</button>
+        <button id="btn4PE" class="pe-btn" onclick="loadGame('4PE')">FNAF 4 PE</button>
+        <button id="btn5PE" class="pe-btn" onclick="loadGame('5PE')">FNAF 5 SL</button>
+        
+        <button id="btn6" class="fixed-btn" onclick="loadGame(6)">FNAF 6</button>
+        <button id="btn6Alt" class="fixed-btn" onclick="loadGame('6Alt')">FNAF 6 Alt (Scratch)</button>
+        <button id="btnWorld" class="fixed-btn" onclick="loadGame('World')">FNAF World</button>
+        <button id="btnWorldAlt" class="fixed-btn" onclick="loadGame('WorldAlt')">World Alt (Scratch)</button>
+        <button id="btnUCN" onclick="loadGame('UCN')">UCN</button>
+        
+        <button class="tool-btn" onclick="toggleFS()">Fullscreen</button>
+        <button class="reload-btn" onclick="reloadIframe()">Force Reset</button>
+        <button class="tab-btn" onclick="launchTab()">New Tab</button>
+    </div>
+
+    <div id="container">
+        <iframe id="game-frame" src="https://sussygamedeveloper.github.io/FNAF1/" allowfullscreen allow="autoplay; fullscreen; keyboard"></iframe>
+    </div>
+
+    <script>
+        let currentUrl = "https://sussygamedeveloper.github.io/FNAF1/";
+
+        function loadGame(choice) {
+            const frame = document.getElementById('game-frame');
+            const links = {
+                1: "https://sussygamedeveloper.github.io/FNAF1/",
+                2: "https://sussygamedeveloper.github.io/FiveNights2NOHACKS/",
+                3: "https://staticquasar931.github.io/FNAF-3/",
+                '3PE': "https://1000000.dns.army/g/FNAF3/",
+                4: "https://abc6782.github.io/game-indexes/fnaf4.html",
+                '4PE': "https://1000000.dns.army/g/FNAF4/",
+                '5PE': "https://1000000.dns.army/g/FNAF5/",
+                
+                // FNAF 6: Main (Web Port) vs Alt (Scratch)
+                6: "https://fnafgames.io/freddy-fazbears-pizzeria-simulator",
+                '6Alt': "https://scratch.mit.edu/projects/192455743/embed", 
+                
+                // FNAF World: Main (Google Sites) vs Alt (Scratch Port)
+                'World': "https://sites.google.com/site/unblockedgames77/fnaf-world",
+                'WorldAlt': "https://scratch.mit.edu/projects/1251476910/embed", 
+                
+                'UCN': "https://sussygamedeveloper.github.io/UCN-HTML5/"
+            };
+            
+            currentUrl = links[choice];
+            frame.src = currentUrl;
+            
+            // Handle active button highlighting
+            document.querySelectorAll('#nav-bar button').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById('btn' + choice);
+            if(activeBtn) activeBtn.classList.add('active');
+        }
+
+        function reloadIframe() {
+            const container = document.getElementById('container');
+            container.innerHTML = `<iframe id="game-frame" src="${currentUrl}" allowfullscreen allow="autoplay; fullscreen; keyboard"></iframe>`;
+        }
+
+        function launchTab() { window.open(currentUrl, "_blank"); }
+        
+        function toggleFS() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+    </script>
+</body>
+</html>

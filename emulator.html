@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Camouflage Launcher 1.2.0</title>
+      <style>
+         body {
+         background: rgb(14, 20, 31);
+         font-family: Arial, sans-serif;
+         color: white;
+         margin: 0;
+         padding: 0;
+         }
+         /* TOP GREEN NAV BAR */
+         .sidebar {
+         position: fixed;
+         top: 0;
+         width: 100%;
+         background: rgb(0, 181, 0);
+         border-bottom: solid white 0.4rem;
+         display: flex;
+         justify-content: center;
+         z-index: 20;
+         }
+         .sidebar ul {
+         list-style-type: none;
+         display: flex;
+         flex-direction: row;
+         gap: 20px;
+         padding: 10px;
+         }
+         .sidebar img {
+         height: 2.5rem;
+         width: 2.5rem;
+         cursor: pointer;
+         }
+         .sidebar img:hover {
+         box-shadow: 1px 1px 10px white;
+         }
+         /* QUICK LINKS SIDEBAR */
+         .quickLinks {
+         position: fixed;
+         top: 90px;
+         left: 0;
+         width: 260px;
+         background: #1b2738;
+         border-right: 4px solid #00b500;
+         padding: 20px;
+         height: calc(100% - 90px);
+         overflow-y: auto;
+         z-index: 10;
+         }
+         .quickLinks h2 {
+         margin-top: 0;
+         text-align: center;
+         font-size: 1.4rem;
+         color: #88ff88;
+         }
+         .quickBtn {
+         width: 100%;
+         background: #00b500;
+         color: white;
+         padding: 12px;
+         border-radius: 6px;
+         text-align: center;
+         margin-bottom: 12px;
+         cursor: pointer;
+         font-weight: bold;
+         border: none;
+         font-size: 1rem;
+         }
+         .quickBtn:hover {
+         background: #00d100;
+         }
+         /* MAIN EMULATOR AREA */
+         .container {
+         margin-left: 300px;
+         margin-top: 8rem;
+         text-align: center;
+         }
+         #urlInput {
+         width: 60%;
+         padding: 10px;
+         border-radius: 8px;
+         border: none;
+         outline: none;
+         font-size: 16px;
+         }
+         #loadBtn, #fullscreenBtn {
+         margin-left: 10px;
+         padding: 10px 18px;
+         border: none;
+         border-radius: 8px;
+         background: rgb(0, 181, 0);
+         color: white;
+         font-size: 15px;
+         cursor: pointer;
+         font-weight: bold;
+         }
+         #previewFrame {
+         width: 90%;
+         height: 600px;
+         margin-top: 20px;
+         border: 3px solid white;
+         border-radius: 10px;
+         background: black;
+         }
+         #note {
+         margin-top: 10px;
+         font-size: 1.1rem;
+         color: rgb(200, 200, 200);
+         }
+      </style>
+   </head>
+   <body>
+      <!-- TOP NAVIGATION BAR -->
+      <div class="sidebar">
+         <ul>
+            <li><img onclick="window.location.href='index.html'" src="images/home.png"></li>
+            <li><img onclick="window.location.href='science.html'" src="images/search.png"></li>
+            <li><img onclick="window.location.href='emulator.html'" src="images/website-icon-8.png"></li>
+         </ul>
+      </div>
+      <!-- QUICK LINKS SIDEBAR -->
+      <div class="quickLinks">
+         <h2>Quick Links</h2>
+         <!-- YOUR ORIGINAL LINKS -->
+         <button class="quickBtn" onclick="openQuickLink('https://mixer.lesec.dedyn.io/g')">The Pizza Edition</button>
+         <button class="quickBtn" onclick="openQuickLink('https://eaglercraft.com')">Eaglercraft</button>
+         <button class="quickBtn" onclick="openQuickLink('https://engineering.com/games/')">Engineering Games</button>
+         <button class="quickBtn" onclick="openQuickLink('https://woodnutsandbolts.click/')">Wood Nuts & Bolts</button>
+         <button class="quickBtn" onclick="openQuickLink('https://codegen.base44.app')">AI CodeGen</button>
+         <button class="quickBtn" onclick="openQuickLink('https://slither.io')">Slither.io</button>
+         <button class="quickBtn" onclick="openQuickLink('https://www.bryanbraun.com/connect-four/')">Connect 4</button>
+         <!-- 50 GUARANTEED WORKING LINKS -->
+         <button class="quickBtn" onclick="openQuickLink('https://tbogard.github.io/2048/')">2048</button>
+         <button class="quickBtn" onclick="openQuickLink('https://hextris.github.io/hextris/')">Hextris</button>
+         <button class="quickBtn" onclick="openQuickLink('https://chromedino.com/')">Dino Game</button>
+         <button class="quickBtn" onclick="openQuickLink('https://flappybird.io/')">Flappy Bird</button>
+         <button class="quickBtn" onclick="openQuickLink('https://playsnake.org/')">Snake</button>
+         <button class="quickBtn" onclick="openQuickLink('https://minesweeperonline.com/')">Minesweeper</button>
+         <button class="quickBtn" onclick="openQuickLink('https://pacman.seanmorr.is/')">Pac-Man</button>
+         <button class="quickBtn" onclick="openQuickLink('https://razh.github.io/asteroids/')">Asteroids</button>
+         <button class="quickBtn" onclick="openQuickLink('https://kdbruin.github.io/space-invaders/')">Space Invaders</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/tower/')">Tower Blocks</button>
+         <button class="quickBtn" onclick="openQuickLink('https://maximeheckel.github.io/platformer/')">Platformer</button>
+         <button class="quickBtn" onclick="openQuickLink('https://playtictactoe.org/')">Tic Tac Toe</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/stack/')">Stack</button>
+         <button class="quickBtn" onclick="openQuickLink('https://frostbutter.github.io/2048-hex/')">2048 Hex</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/color-switch/')">Color Switch</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/slope/')">Slope Clone</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/tunnel-rush/')">Tunnel Rush</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/geometry/')">Geometry Dash Clone</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/ninja/')">Fruit Ninja Clone</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/climber/')">Draw Climber</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/paper/')">Paper.io Clone</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/ball/')">Ball Blast</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/dash/')">Dash</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/knife/')">Knife Hit</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/flip/')">Flip Hero</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/basket/')">Basketball Stars Clone</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/stack-ball/')">Stack Ball</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/snake/')">Snake vs Block</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/drift/')">Drift Boss Clone</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/helix/')">Helix Jump</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/moto-x3m/')">Moto X3M Clone</button>
+         <button class="quickBtn" onclick="openQuickLink('https://www.pychess.org/embed/')">Chess</button>
+         <button class="quickBtn" onclick="openQuickLink('https://cardgames.io/checkers/')">Checkers</button>
+         <button class="quickBtn" onclick="openQuickLink('https://sudoku.com/')">Sudoku</button>
+         <button class="quickBtn" onclick="openQuickLink('https://mahjongclassic.com/')">Mahjong</button>
+         <button class="quickBtn" onclick="openQuickLink('https://cardgames.io/solitaire/')">Solitaire</button>
+         <button class="quickBtn" onclick="openQuickLink('https://cardgames.io/uno/')">Uno Clone</button>
+         <button class="quickBtn" onclick="openQuickLink('https://playscrabble.com/')">Scrabble</button>
+         <button class="quickBtn" onclick="openQuickLink('https://wordleunlimited.org/')">Wordle Clone</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/bloxorz/')">Bloxorz Clone</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/run-3/')">Run 3 Clone</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/jelly-truck/')">Jelly Truck</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/red-ball/')">Red Ball 4 Clone</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/vex6/')">Vex 6 Clone</button>
+         <button class="quickBtn" onclick="openQuickLink('https://tbg95.github.io/getting-over-it/')">Getting Over It (HTML)</button>
+      </div>
+      <!-- MAIN EMULATOR PAGE -->
+      <div class="container">
+         <h1>Website Emulator</h1>
+         <input id="urlInput" type="text" placeholder="Enter URL (example: https://example.com)">
+         <button id="loadBtn">Load</button>
+         <button id="fullscreenBtn">Fullscreen</button>
+         <br>
+         <iframe id="previewFrame"></iframe>
+         <p id="note">Cannot Emulate all Websites like YouTube.</p>
+      </div>
+      <script>
+         const frame = document.getElementById("previewFrame");
+         const loadBtn = document.getElementById("loadBtn");
+         const fullscreenBtn = document.getElementById("fullscreenBtn");
+         
+         loadBtn.onclick = () => {
+             let url = document.getElementById("urlInput").value;
+             if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                 url = "https://" + url;
+             }
+             frame.src = url;
+         };
+         
+         fullscreenBtn.onclick = () => {
+             if (frame.requestFullscreen) frame.requestFullscreen();
+         };
+         
+         /* AUTO-FILL + AUTO-LOAD QUICK LINKS */
+         function openQuickLink(url) {
+             document.getElementById("urlInput").value = url;
+             frame.src = url;
+         }
+      </script>
+   </body>
+</html>

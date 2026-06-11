@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classroom Crankin' 3D - Free Roam</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS3DRenderer.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', Courier, monospace; }
+        #webgl-container { position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none; }
+        #css3d-container { position: absolute; top: 0; left: 0; z-index: 2; }
+        
+        #screen-ui {
+            width: 800px; height: 600px;
+            background: #1a1a1a; border: 20px solid #333; border-radius: 10px;
+            display: flex; flex-direction: column; pointer-events: auto;
+            box-shadow: 0 0 20px rgba(0,255,255,0.2);
+        }
+        .tab-content { flex-grow: 1; background: #fff; color: #000; overflow-y: auto; padding: 20px; font-size: 1.2rem; }
+        .game-tab { background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .hacking-tab { background: #0d0208; color: #00ff41; }
+        .tab-btn { padding: 10px 20px; cursor: pointer; border: 1px solid #444; background: #333; color: white; font-weight: bold; }
+        .tab-btn.active { background: #fff; color: #000; }
+        
+        #overlay-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+        .meter-bar { height: 15px; background: #444; border-radius: 5px; width: 200px; }
+        .meter-fill { height: 100%; width: 0%; transition: width 0.1s linear; }
+        
+        #detention-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(139, 0, 0, 0.95); display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+            color: white; z-index: 100; pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="webgl-container"></div>
+    <div id="css3d-container"></div>
+
+    <div id="overlay-ui">
+        <div class="absolute top-6 right-6 p-6 bg-black/70 text-white rounded-xl border border-white/20 pointer-events-auto">
+            <div class="text-2xl font-bold">SCORE: <span id="score-val">0</span></div>
+            <div class="mt-4 text-sm uppercase tracking-widest">Bladder Level</div>
+            <div class="meter-bar mt-1"><div id="bladder-fill" class="meter-fill bg-yellow-400"></div></div>
+            <div id="pass-timer" class="mt-4 text-red-400 font-black hidden animate-pulse text-xl text-center">PASS: 05:00</div>
+        </div>
+
+        <div class="absolute bottom-6 left-6 p-4 bg-black/50 text-white rounded text-sm">
+            [W,A,S,D] Move Around <br>
+            [SHIFT] Stand Up / Sit Down <br>
+            [KEYS] Type on Screen <br>
+            [MOUSE] Click Tabs / Look (Click Screen)
+        </div>
+    </div>
+
+    <div id="screen-wrapper" style="display: none;">
+        <div id="screen-ui">
+            <div class="flex bg-gray-800 p-2 space-x-2">
+                <div onclick="switchTab('essay')" class="tab-btn active" id="btn-essay">Essay</div>
+                <div onclick="switchTab('game')" class="tab-btn" id="btn-game">Crankin'</div>
+                <div onclick="switchTab('hack')" class="tab-btn" id="btn-hack">Hax</div>
+                <div onclick="switchTab('pass')" class="tab-btn" id="btn-pass">Pass</div>
+            </div>
+            <div id="content-essay" class="tab-content">
+                <h3 class="font-bold border-b-2 border-black mb-4 text-2xl uppercase">Class Essay</h3>
+                <div id="essay-text" class="whitespace-pre-wrap leading-relaxed">Type to write...</div>
+            </div>
+            <div id="content-game" class="tab-content game-tab hidden">
+                <img id="game-gif" src="Cranking90's.gif" class="w-full h-full object-contain">
+            </div>
+            <div id="content-hack" class="tab-content hacking-tab hidden text-lg">
+                <div id="hack-output">SYS_INIT_SUCCESS...</div>
+            </div>
+            <div id="content-pass" class="tab-content hidden flex flex-col items-center justify-center bg-blue-50">
+                <h2 class="text-3xl font-black mb-6">HALL PASS REQUEST</h2>
+                <button id="submit-pass-btn" class="bg-blue-600 text-white px-10 py-5 rounded-full text-xl font-bold shadow-lg">GET PASS</button>
+                <button id="return-pass-btn" class="bg-green-600 text-white px-10 py-5 rounded-full text-xl font-bold shadow-lg hidden">I'M BACK</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="detention-overlay">
+        <h1 class="text-8xl font-black mb-4">DETENTION!</h1>
+        <p id="death-reason" class="text-2xl mb-12 opacity-80">Caught!</p>
+        <button onclick="location.reload()" class="bg-white text-red-900 px-12 py-4 rounded-full font-bold text-2xl hover:scale-110">RETRY</button>
+    </div>
+
+    <script>
+        let state = {
+            score: 0, standing: false, activeTab: 'essay',
+            bladder: 0, hasPass: false, passTimeRemaining: 300,
+            gameOver: false, essayChars: 0, hackChars: 0,
+            teacherRotation: 0, teacherLookingAtPlayer: false,
+            keys: {}
+        };
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x111111);
+        const cssScene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('webgl-container').appendChild(renderer.domElement);
+
+        const cssRenderer = new THREE.CSS3DRenderer();
+        cssRenderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('css3d-container').appendChild(cssRenderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const spot = new THREE.SpotLight(0xffffff, 0.8);
+        spot.position.set(5, 20, 5);
+        scene.add(spot);
+
+        // Environment
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshPhongMaterial({color: 0x222222}));
+        floor.rotation.x = -Math.PI/2;
+        scene.add(floor);
+
+        // Classroom Walls
+        const wallMat = new THREE.MeshPhongMaterial({color: 0x333333});
+        const backWall = new THREE.Mesh(new THREE.PlaneGeometry(30, 10), wallMat);
+        backWall.position.set(0, 5, -15);
+        scene.add(backWall);
+
+        // Function to create a desk/student pair
+        function createStudentDesk(x, z, isPlayer = false) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+
+            // Desk
+            const deskTop = new THREE.Mesh(new THREE.BoxGeometry(4, 0.2, 2.5), new THREE.MeshPhongMaterial({color: 0x4a3222}));
+            deskTop.position.y = 1.5;
+            group.add(deskTop);
+            
+            [[1.8, 1.1], [-1.8, 1.1], [1.8, -1.1], [-1.8, -1.1]].forEach(p => {
+                const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.5, 0.1), new THREE.MeshPhongMaterial({color: 0x111111}));
+                leg.position.set(p[0], 0.75, p[1]);
+                group.add(leg);
+            });
+
+            if (!isPlayer) {
+                // NPC Student (Constructing a capsule-like shape since r128 CapsuleGeometry is unstable)
+                const colors = [0xff5555, 0x55ff55, 0x5555ff, 0xffff55, 0xff55ff];
+                const studentColor = colors[Math.floor(Math.random()*colors.length)];
+                const studentBody = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.5, 0.5, 1.2, 16),
+                    new THREE.MeshPhongMaterial({color: studentColor})
+                );
+                studentBody.position.set(0, 1.3, 1.5);
+                group.add(studentBody);
+
+                const studentHead = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.5, 16, 16),
+                    new THREE.MeshPhongMaterial({color: studentColor})
+                );
+                studentHead.position.set(0, 1.9, 1.5);
+                group.add(studentHead);
+            }
+            scene.add(group);
+            return group;
+        }
+
+        // Generate Classroom
+        for(let r = 0; r < 3; r++) {
+            for(let c = -2; c <= 2; c++) {
+                if (r === 0 && c === 0) {
+                    createStudentDesk(0, 0, true); // Player Desk
+                } else {
+                    createStudentDesk(c * 6, r * 6);
+                }
+            }
+        }
+
+        // Player's 3D Screen
+        const screenElement = document.getElementById('screen-ui');
+        const cssObject = new THREE.CSS3DObject(screenElement);
+        cssObject.position.set(0, 2.8, -1.2);
+        cssObject.rotation.x = -0.1;
+        cssObject.scale.set(0.005, 0.005, 0.005);
+        cssScene.add(cssObject);
+
+        const monitorCase = new THREE.Mesh(new THREE.BoxGeometry(4.2, 3.2, 0.2), new THREE.MeshPhongMaterial({color: 0x222222}));
+        monitorCase.position.set(0, 2.8, -1.3);
+        monitorCase.rotation.x = -0.1;
+        scene.add(monitorCase);
+
+        // Teacher
+        const loader = new THREE.TextureLoader();
+        const teacherTex = loader.load('vegan Karen teacher.jpeg');
+        const teacherMat = new THREE.SpriteMaterial({ map: teacherTex });
+        const teacher = new THREE.Sprite(teacherMat);
+        teacher.scale.set(5, 5, 1);
+        teacher.position.set(0, 2.5, -12);
+        scene.add(teacher);
+
+        const teacherDesk = new THREE.Mesh(new THREE.BoxGeometry(8, 1.5, 3), new THREE.MeshPhongMaterial({color: 0x3d2b1f}));
+        teacherDesk.position.set(0, 0.75, -13);
+        scene.add(teacherDesk);
+
+        // Camera setup
+        camera.position.set(0, 2.5, 3.5);
+        
+        window.addEventListener('keydown', (e) => {
+            state.keys[e.code] = true;
+            if (state.gameOver) return;
+            if (e.key === "Shift") { toggleStand(); return; }
+            
+            const distToDesk = camera.position.distanceTo(new THREE.Vector3(0, camera.position.y, 0));
+            if (distToDesk < 5 && !state.standing) {
+                if (state.activeTab === 'essay') { state.essayChars++; state.score += 2; updateEssay(); }
+                else if (state.activeTab === 'hack') { state.hackChars++; state.score += 10; updateHack(); }
+                else if (state.activeTab === 'game') { state.score += 20; }
+            }
+        });
+        window.addEventListener('keyup', (e) => state.keys[e.code] = false);
+
+        function toggleStand() {
+            state.standing = !state.standing;
+            camera.position.y = state.standing ? 4.5 : 2.5;
+        }
+
+        function switchTab(tab) {
+            state.activeTab = tab;
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(`content-${tab}`).classList.remove('hidden');
+            document.getElementById(`btn-${tab}`).classList.add('active');
+        }
+
+        const essayData = "Modern ethics requires a deeper understanding of our impact on the environment. Plant-based diets reduce the carbon footprint significantly. Every choice we make at the dinner table resonates globally.";
+        function updateEssay() {
+            document.getElementById('essay-text').innerText = essayData.substring(0, state.essayChars % (essayData.length + 1)) + "_";
+        }
+        function updateHack() {
+            const out = document.getElementById('hack-output');
+            out.innerHTML += `<div class="mt-1">> PKT_RECV: 0x${Math.floor(Math.random()*0xFFFFFF).toString(16)}</div>`;
+            out.scrollTop = out.scrollHeight;
+        }
+
+        document.getElementById('submit-pass-btn').onclick = () => {
+            state.hasPass = true;
+            state.passTimeRemaining = 300;
+            document.getElementById('pass-timer').classList.remove('hidden');
+            document.getElementById('submit-pass-btn').classList.add('hidden');
+            document.getElementById('return-pass-btn').classList.remove('hidden');
+        };
+
+        function endGame(reason) {
+            state.gameOver = true;
+            document.getElementById('death-reason').innerText = reason;
+            document.getElementById('detention-overlay').style.display = 'flex';
+        }
+
+        function animate() {
+            if (state.gameOver) return;
+            requestAnimationFrame(animate);
+
+            // Movement Logic
+            const speed = 0.15;
+            if (state.standing) {
+                if (state.keys['KeyW']) camera.position.z -= speed;
+                if (state.keys['KeyS']) camera.position.z += speed;
+                if (state.keys['KeyA']) camera.position.x -= speed;
+                if (state.keys['KeyD']) camera.position.x += speed;
+            }
+
+            // Teacher Patrol
+            state.teacherRotation += 0.007;
+            teacher.position.x = Math.sin(state.teacherRotation) * 10;
+            const isLookingAtClass = Math.abs(teacher.position.x) < 4.0;
+            
+            if (isLookingAtClass) {
+                teacher.material.color.set(0xff0000);
+                const distToDesk = camera.position.distanceTo(new THREE.Vector3(0, camera.position.y, 0));
+                if (distToDesk < 5 && !state.standing && (state.activeTab === 'game' || state.activeTab === 'hack')) {
+                    endGame("The teacher caught you gaming on your screen!");
+                }
+                if (state.standing && !state.hasPass) {
+                    endGame("You stood up and walked around without a pass!");
+                }
+            } else {
+                teacher.material.color.set(0xffffff);
+            }
+
+            // UI and Meters
+            state.bladder += 0.05;
+            document.getElementById('bladder-fill').style.width = `${state.bladder}%`;
+            if (state.bladder >= 100) endGame("You couldn't hold it anymore. Detention!");
+
+            if (state.hasPass) {
+                state.passTimeRemaining -= 0.016;
+                if (state.passTimeRemaining <= 0) endGame("You spent too long out of the classroom!");
+                if (state.standing) state.bladder = Math.max(0, state.bladder - 0.4);
+                
+                const m = Math.floor(state.passTimeRemaining / 60);
+                const s = Math.floor(state.passTimeRemaining % 60);
+                document.getElementById('pass-timer').innerText = `PASS: ${m}:${s.toString().padStart(2, '0')}`;
+            }
+
+            document.getElementById('score-val').innerText = Math.floor(state.score);
+
+            renderer.render(scene, camera);
+            cssRenderer.render(cssScene, camera);
+        }
+
+        window.onload = animate;
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            cssRenderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

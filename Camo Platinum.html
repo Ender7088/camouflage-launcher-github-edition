@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Camo Platinum | Cloud Vault</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Variable Safeties
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'camo-platinum-standalone';
+
+        let currentUser = null;
+        let isSaving = false;
+
+        window.state = {
+            vault: 0,
+            unlocked: {},
+            lastAllowance: null,
+            miningPower: 1
+        };
+
+        const initAuth = async () => {
+            if (!firebaseConfig) {
+                console.warn("Cloud features disabled: Config not found.");
+                return;
+            }
+            try {
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                window.db = getFirestore(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        currentUser = user;
+                        document.getElementById('user-id-display').innerText = user.uid;
+                        syncFromCloud();
+                    }
+                });
+            } catch (error) { 
+                console.error("Auth failed:", error); 
+            }
+        };
+
+        async function syncFromCloud() {
+            if (!currentUser || !window.db) return;
+            const userDocRef = doc(window.db, 'artifacts', appId, 'users', currentUser.uid, 'saveData', 'profile');
+            onSnapshot(userDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    window.state.vault = data.vault || 0;
+                    window.state.unlocked = data.unlocked || {};
+                    window.state.lastAllowance = data.lastAllowance || null;
+                    updateVaultDisplay();
+                    refreshPerkCards();
+                    checkAllowanceStatus();
+                } else { 
+                    saveToCloud(); 
+                }
+            }, (error) => console.error("Sync error:", error));
+        }
+
+        async function saveToCloud() {
+            if (!currentUser || isSaving || !window.db) return;
+            isSaving = true;
+            const userDocRef = doc(window.db, 'artifacts', appId, 'users', currentUser.uid, 'saveData', 'profile');
+            try {
+                await setDoc(userDocRef, {
+                    vault: window.state.vault,
+                    unlocked: window.state.unlocked,
+                    lastAllowance: window.state.lastAllowance,
+                    updatedAt: Date.now()
+                }, { merge: true });
+            } catch (e) { 
+                console.error("Cloud save failed:", e); 
+            } finally { 
+                isSaving = false; 
+            }
+        }
+
+        window.updateVaultDisplay = () => {
+            const el = document.getElementById('global-vault');
+            if(el) el.innerText = Math.floor(window.state.vault).toLocaleString();
+        };
+
+        window.mineCB = (e) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            window.state.vault += window.state.miningPower;
+            window.updateVaultDisplay();
+            
+            const core = document.getElementById('mining-core');
+            core.style.transform = "scale(0.92)";
+            setTimeout(() => { core.style.transform = "scale(1)"; }, 50);
+
+            // Floating text logic
+            const text = document.createElement('div');
+            text.className = 'floating-text';
+            text.innerText = `+${window.state.miningPower}`;
+            
+            let x, y;
+            if (e && e.touches && e.touches[0]) {
+                x = e.touches[0].clientX;
+                y = e.touches[0].clientY;
+            } else if (e && e.clientX) {
+                x = e.clientX;
+                y = e.clientY;
+            } else {
+                const rect = core.getBoundingClientRect();
+                x = rect.left + rect.width / 2;
+                y = rect.top;
+            }
+            
+            text.style.left = `${x}px`;
+            text.style.top = `${y}px`;
+            document.body.appendChild(text);
+            setTimeout(() => text.remove(), 800);
+            
+            clearTimeout(window.saveTimeout);
+            window.saveTimeout = setTimeout(saveToCloud, 2000);
+        };
+
+        window.purchasePerk = async (id, price) => {
+            if (window.state.vault < price) {
+                const btn = document.querySelector(`#action-${id} button`);
+                const oldText = btn.innerText;
+                btn.innerText = "INSUFFICIENT FUNDS";
+                btn.classList.add('bg-red-500', 'text-white');
+                setTimeout(() => { 
+                    btn.innerText = oldText; 
+                    btn.classList.remove('bg-red-500', 'text-white'); 
+                }, 1500);
+                return;
+            }
+            window.state.vault -= price;
+            window.state.unlocked[id] = true;
+            window.updateVaultDisplay();
+            refreshPerkCards();
+            await saveToCloud();
+        };
+
+        window.setAllowanceTime = async (time) => {
+            window.state.lastAllowance = time;
+            await saveToCloud();
+        };
+
+        // Initialize once DOM is ready
+        window.addEventListener('DOMContentLoaded', () => {
+            initAuth();
+            window.updateVaultDisplay();
+            refreshPerkCards();
+        });
+    </script>
+    <style>
+        * { -webkit-tap-highlight-color: transparent; outline: none; box-sizing: border-box; }
+        body {
+            background: #050505; color: #ffffff; font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            min-height: 100vh; overflow-x: hidden;
+            background-image: radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.03) 0%, transparent 20%), radial-gradient(circle at 90% 80%, rgba(255, 255, 255, 0.03) 0%, transparent 20%);
+        }
+        .platinum-gradient-text { background: linear-gradient(135deg, #ffffff 0%, #a1a1a1 50%, #ffffff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        /* The container should NOT block clicks to the rest of the site */
+        #allowance-sidebar-container { 
+            position: fixed; 
+            inset: 0; 
+            pointer-events: none; 
+            z-index: 1000; 
+            display: flex; 
+            justify-content: flex-end; 
+        }
+
+        #allowance-sidebar { 
+            width: 100%; 
+            max-width: 450px; 
+            height: 100%; 
+            background: #000; 
+            border-left: 1px solid rgba(255,255,255,0.1); 
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+            box-shadow: -20px 0 50px rgba(0,0,0,0.8); 
+            overflow-y: auto; 
+            pointer-events: auto; /* Only the actual sidebar catches clicks */
+            transform: translateX(100%);
+        }
+        #allowance-sidebar.open { transform: translateX(0); }
+        
+        .clicker-core { 
+            width: 180px; height: 180px; 
+            background: radial-gradient(circle, #ffd700 0%, #886b00 100%); 
+            border-radius: 50%; 
+            box-shadow: 0 0 40px rgba(255, 215, 0, 0.2); 
+            cursor: pointer; 
+            display: flex; align-items: center; justify-content: center; 
+            border: 8px solid rgba(255,255,255,0.05); 
+            position: relative;
+            transition: transform 0.05s ease-out;
+            touch-action: manipulation;
+            user-select: none;
+        }
+        .clicker-inner { font-size: 3rem; pointer-events: none; }
+
+        .floating-text { position: fixed; color: #ffd700; font-weight: 900; pointer-events: none; animation: floatUp 0.8s ease-out forwards; z-index: 2000; font-size: 1.5rem; text-shadow: 0 0 8px rgba(0,0,0,1); }
+        @keyframes floatUp { 0% { transform: translate(-50%, 0) scale(1); opacity: 1; } 100% { transform: translate(-50%, -100px) scale(1.3); opacity: 0; } }
+        
+        .perk-card { background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; transition: all 0.3s; }
+        
+        .cb-coin { 
+            position: absolute; 
+            width: 60px; height: 60px; 
+            background: #ffd700; 
+            border-radius: 50%; 
+            cursor: pointer; 
+            display: flex; align-items: center; justify-content: center; 
+            color: black; font-weight: 900; font-size: 14px; 
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.4); 
+            pointer-events: auto !important; 
+            z-index: 100;
+            animation: fall 2.5s linear forwards;
+            user-select: none;
+            touch-action: none;
+        }
+        @keyframes fall { from { top: -80px; } to { top: 110%; } }
+        
+        #game-area { position: relative; overflow: hidden; touch-action: none; }
+        .locked-interaction { pointer-events: none !important; opacity: 0.6; filter: grayscale(1); }
+    </style>
+</head>
+<body class="p-6 md:p-12">
+
+    <!-- HUD -->
+    <div class="fixed top-0 left-0 w-full z-[1100] p-4 pointer-events-none">
+        <div class="max-w-7xl mx-auto flex justify-end">
+            <div class="pointer-events-auto bg-black/80 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-full flex items-center gap-4 shadow-2xl">
+                <div class="flex flex-col text-right">
+                    <span class="text-[8px] text-white/40 uppercase tracking-widest leading-none mb-1">Camo Vault</span>
+                    <span class="text-xl font-black text-yellow-500 tracking-tighter" id="global-vault">0</span>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center text-black font-black text-sm">CB</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div id="allowance-sidebar-container">
+        <div id="allowance-sidebar" class="flex flex-col">
+            <div class="p-6 flex justify-between items-center border-b border-white/5 bg-black/50 backdrop-blur-md sticky top-0 z-20">
+                <h2 class="text-xs font-black tracking-[0.3em] text-yellow-500 uppercase">System Hub</h2>
+                <button id="close-sidebar-btn" onclick="toggleSidebar()" class="w-12 h-12 flex items-center justify-center rounded-full bg-white/5 text-white hover:bg-white/10 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            
+            <div class="p-6 flex-grow">
+                <div class="mb-6 p-4 bg-white/5 rounded-2xl border border-white/10">
+                    <p class="text-[8px] text-white/30 uppercase tracking-widest mb-1">Authenticated ID</p>
+                    <p id="user-id-display" class="text-[10px] font-mono text-white/60 truncate">Local Session</p>
+                </div>
+
+                <div class="flex gap-2 mb-8 bg-white/5 p-1 rounded-full border border-white/10">
+                    <button onclick="switchTab('clicker')" id="tab-clicker" class="flex-1 py-3 rounded-full text-[11px] font-black tracking-widest bg-white text-black transition">MINING</button>
+                    <button onclick="switchTab('allowance')" id="tab-allowance" class="flex-1 py-3 rounded-full text-[11px] font-black tracking-widest text-white/40 hover:text-white transition uppercase">Harvest</button>
+                </div>
+
+                <!-- Mining Panel -->
+                <div id="panel-clicker" class="flex flex-col items-center py-6">
+                    <div class="text-center mb-10">
+                        <h3 class="text-2xl font-black uppercase tracking-tighter mb-2">Core Processor</h3>
+                        <p class="text-xs text-white/40">Manual generation protocol active.</p>
+                    </div>
+                    
+                    <div class="clicker-core mb-12" id="mining-core" 
+                         onmousedown="window.mineCB(event)" 
+                         ontouchstart="window.mineCB(event)">
+                        <div class="clicker-inner">⚡</div>
+                    </div>
+
+                    <div class="w-full p-6 bg-white/5 rounded-3xl border border-white/10 flex justify-between items-center">
+                        <div>
+                            <span class="text-[9px] text-white/40 uppercase block">Yield per tap</span>
+                            <span class="text-xl font-black text-yellow-500">+1.0 CB</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[9px] text-white/40 uppercase block">Status</span>
+                            <span class="text-sm font-bold text-green-400">OPTIMAL</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Harvest Panel -->
+                <div id="panel-allowance" class="hidden">
+                    <div id="allowance-ready">
+                        <div id="game-area" class="h-[400px] w-full bg-white/5 rounded-3xl border border-white/10 mb-6 relative overflow-hidden">
+                            <div id="game-overlay" class="absolute inset-0 z-[110] flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm text-center p-6 rounded-3xl">
+                                <span id="game-timer-display" class="text-6xl font-black text-yellow-500 mb-8">15s</span>
+                                <button id="start-game-btn" onclick="startGame()" class="w-full max-w-[240px] py-5 bg-yellow-500 text-black font-black rounded-2xl text-xs uppercase tracking-[0.2em] shadow-2xl active:scale-95 transition">Begin Sequence</button>
+                            </div>
+                            <div id="coin-container" class="absolute inset-0 z-[100] pointer-events-none"></div>
+                        </div>
+                        <div class="p-6 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center">
+                            <div>
+                                <p class="text-[9px] text-white/30 uppercase tracking-widest">Harvested</p>
+                                <p class="text-3xl font-black text-yellow-500"><span id="score-counter">0</span> CB</p>
+                            </div>
+                            <div class="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center text-xl">🌾</div>
+                        </div>
+                    </div>
+                    <div id="allowance-cooldown" class="hidden py-20 text-center">
+                        <div class="w-20 h-20 border-4 border-white/5 border-t-yellow-500 rounded-full animate-spin mx-auto mb-8"></div>
+                        <p class="text-[10px] text-white/40 uppercase tracking-widest mb-4">Vault Reloading</p>
+                        <p id="cooldown-timer" class="text-4xl font-mono text-yellow-500 font-bold tracking-tighter">00:00:00</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Store UI -->
+    <div id="main-ui-wrapper">
+        <header class="max-w-5xl mx-auto mb-16 pt-12">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="w-8 h-[1px] bg-white/30"></span>
+                <span class="text-[9px] tracking-[0.4em] text-white/40 uppercase font-black">Camo</span>
+            </div>
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-8">
+                <h1 class="text-6xl md:text-9xl font-black platinum-gradient-text leading-none tracking-tighter">CAMO PLATINUM</h1>
+                <button onclick="toggleSidebar()" class="px-10 py-5 bg-yellow-500 text-black rounded-2xl hover:bg-yellow-400 transition text-[11px] uppercase tracking-[0.2em] font-black shadow-2xl">
+                    Open Miner
+                </button>
+            </div>
+        </header>
+
+        <main class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 mb-24">
+            <div class="perk-card p-10 flex flex-col justify-between min-h-[460px]">
+                <div>
+                    <div class="flex justify-between items-center mb-8">
+                        <div class="px-3 py-1 bg-white/10 rounded-md text-[8px] font-black tracking-widest text-white/60 uppercase">Sandbox Sim</div>
+                        <div class="text-yellow-500 font-black text-xs" id="price-blockit">500 CB</div>
+                    </div>
+                    <h2 class="text-5xl font-black mb-4 tracking-tighter">Block-it</h2>
+                    <p class="text-white/40 text-sm leading-relaxed mb-6">Master the block-based economy. Build structures, collect rare assets, and architect your own digital world.</p>
+                </div>
+                <div id="action-blockit">
+                    <button onclick="window.purchasePerk('blockit', 500)" class="w-full py-5 bg-white text-black font-black uppercase text-xs tracking-widest rounded-2xl hover:bg-gray-200 active:scale-95 transition">Purchase License (500 CB)</button>
+                </div>
+            </div>
+
+            <div class="perk-card p-10 flex flex-col justify-between min-h-[460px]">
+                <div>
+                    <div class="flex justify-between items-center mb-8">
+                        <div class="px-3 py-1 bg-white/10 rounded-md text-[8px] font-black tracking-widest text-white/60 uppercase">System Reflex</div>
+                        <div class="text-yellow-500 font-black text-xs" id="price-neondash">1,200 CB</div>
+                    </div>
+                    <h2 class="text-5xl font-black mb-4 tracking-tighter">Neon Dash Tri</h2>
+                    <p class="text-white/40 text-sm leading-relaxed mb-6">A high-velocity triangular survival circuit. Bypass system firewalls in this high-intensity neon dash.</p>
+                </div>
+                <div id="action-neondash">
+                    <button onclick="window.purchasePerk('neondash', 1200)" class="w-full py-5 bg-white text-black font-black uppercase text-xs tracking-widest rounded-2xl hover:bg-gray-200 active:scale-95 transition">Purchase License (1200 CB)</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function toggleSidebar() { 
+            if (window.gameActive) return; 
+            document.getElementById('allowance-sidebar').classList.toggle('open'); 
+        }
+
+        function switchTab(tab) {
+            if (window.gameActive) return;
+            const isClicker = tab === 'clicker';
+            document.getElementById('panel-clicker').classList.toggle('hidden', !isClicker);
+            document.getElementById('panel-allowance').classList.toggle('hidden', isClicker);
+            
+            document.getElementById('tab-clicker').className = isClicker ? "flex-1 py-3 rounded-full text-[11px] font-black tracking-widest bg-white text-black transition" : "flex-1 py-3 rounded-full text-[11px] font-black tracking-widest text-white/40 hover:text-white transition uppercase";
+            document.getElementById('tab-allowance').className = !isClicker ? "flex-1 py-3 rounded-full text-[11px] font-black tracking-widest bg-white text-black transition" : "flex-1 py-3 rounded-full text-[11px] font-black tracking-widest text-white/40 hover:text-white transition uppercase";
+        }
+
+        function refreshPerkCards() {
+            const games = [
+                { id: 'blockit', url: 'https://pickensk12-my.sharepoint.com/personal/31jamesfcliver_pickens_k12_sc_us/_layouts/15/onedrive.aspx?id=%2Fpersonal%2F31jamesfcliver%5Fpickens%5Fk12%5Fsc%5Fus%2FDocuments%2FAttachments%2FBlock%2DIt%2Ehtml&parent=%2Fpersonal%2F31jamesfcliver%5Fpickens%5Fk12%5Fsc%5Fus%2FDocuments%2FAttachments&ct=1775879307978&or=OWA%2DNT%2DMail&cid=2c103e78%2D22bd%2De3e1%2D8ea3%2D0c6f59583b0a&ga=1' }, 
+                { id: 'neondash', url: 'https://pickensk12-my.sharepoint.com/personal/31jamesfcliver_pickens_k12_sc_us/_layouts/15/onedrive.aspx?id=%2Fpersonal%2F31jamesfcliver%5Fpickens%5Fk12%5Fsc%5Fus%2FDocuments%2FAttachments%2FNeon%20Dash%20Tri%2Ehtml&parent=%2Fpersonal%2F31jamesfcliver%5Fpickens%5Fk12%5Fsc%5Fus%2FDocuments%2FAttachments&ct=1775878974540&or=OWA%2DNT%2DMail&cid=245c0601%2D2200%2D8111%2Dbacf%2D2923a85c81c9&ga=1' }
+            ];
+            
+            games.forEach(game => {
+                if (window.state.unlocked[game.id]) {
+                    const priceTag = document.getElementById(`price-${game.id}`);
+                    if(priceTag) {
+                        priceTag.innerText = "OWNED";
+                        priceTag.className = "text-green-400 font-black text-[9px] tracking-widest bg-green-400/10 px-3 py-1 rounded-full";
+                    }
+                    const actionContainer = document.getElementById(`action-${game.id}`);
+                    if(actionContainer) {
+                        actionContainer.innerHTML = `
+                            <button onclick="window.open('${game.url}', '_blank')" class="w-full py-5 border border-white/20 hover:bg-white/10 active:scale-[0.98] transition text-white font-black uppercase text-xs tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3">
+                                Connect <span class="text-white/30">↗</span>
+                            </button>
+                        `;
+                    }
+                }
+            });
+        }
+
+        window.gameActive = false;
+        let allowanceScore = 0;
+        let timeLeft = 15;
+        let spawnInterval = null;
+
+        function checkAllowanceStatus() {
+            const now = Date.now();
+            const cooldown = 24 * 60 * 60 * 1000;
+            if (window.state.lastAllowance && (now - parseInt(window.state.lastAllowance)) < cooldown) {
+                document.getElementById('allowance-ready').classList.add('hidden');
+                document.getElementById('allowance-cooldown').classList.remove('hidden');
+                startCooldownTimer(parseInt(window.state.lastAllowance) + cooldown);
+            } else {
+                document.getElementById('allowance-ready').classList.remove('hidden');
+                document.getElementById('allowance-cooldown').classList.add('hidden');
+            }
+        }
+
+        function startCooldownTimer(target) {
+            const timerEl = document.getElementById('cooldown-timer');
+            const tick = () => {
+                const diff = target - Date.now();
+                if (diff <= 0) { checkAllowanceStatus(); return; }
+                const h = Math.floor(diff/3600000).toString().padStart(2, '0');
+                const m = Math.floor((diff%3600000)/60000).toString().padStart(2, '0');
+                const s = Math.floor((diff%60000)/1000).toString().padStart(2, '0');
+                timerEl.innerText = `${h}:${m}:${s}`;
+                setTimeout(tick, 1000);
+            }; tick();
+        }
+
+        window.startGame = () => {
+            window.gameActive = true; 
+            allowanceScore = 0; 
+            timeLeft = 15;
+            document.getElementById('main-ui-wrapper').classList.add('locked-interaction');
+            document.getElementById('close-sidebar-btn').style.opacity = '0';
+            document.getElementById('close-sidebar-btn').style.pointerEvents = 'none';
+            document.getElementById('game-overlay').classList.add('hidden');
+            document.getElementById('score-counter').innerText = '0';
+            document.getElementById('game-timer-display').innerText = '15s';
+            
+            const timer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('game-timer-display').innerText = timeLeft + 's';
+                if (timeLeft <= 0) { 
+                    clearInterval(timer); 
+                    clearInterval(spawnInterval);
+                    endGame(); 
+                }
+            }, 1000);
+
+            spawnInterval = setInterval(spawnCoin, 700);
+        }
+
+        function spawnCoin() {
+            if (!window.gameActive) return;
+            const container = document.getElementById('coin-container');
+            const coin = document.createElement('div');
+            coin.className = 'cb-coin'; 
+            coin.innerHTML = 'CB';
+            
+            const rect = document.getElementById('game-area').getBoundingClientRect();
+            const randomX = Math.random() * (rect.width - 70);
+            coin.style.left = randomX + 'px';
+            
+            const handleTap = (e) => {
+                if (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                allowanceScore += 25; 
+                document.getElementById('score-counter').innerText = allowanceScore; 
+                coin.remove(); 
+            };
+            
+            coin.addEventListener('mousedown', handleTap);
+            coin.addEventListener('touchstart', handleTap, {passive: false});
+            
+            container.appendChild(coin);
+            
+            setTimeout(() => { if(coin.parentNode) coin.remove(); }, 2500);
+        }
+
+        async function endGame() {
+            window.gameActive = false;
+            window.state.vault += allowanceScore;
+            window.updateVaultDisplay();
+            await window.setAllowanceTime(Date.now().toString());
+            
+            document.getElementById('coin-container').innerHTML = '';
+            document.getElementById('game-overlay').classList.remove('hidden');
+            document.getElementById('game-timer-display').innerText = "SYNCED";
+            
+            setTimeout(() => {
+                document.getElementById('main-ui-wrapper').classList.remove('locked-interaction');
+                document.getElementById('close-sidebar-btn').style.opacity = '1';
+                document.getElementById('close-sidebar-btn').style.pointerEvents = 'auto';
+                checkAllowanceStatus();
+            }, 1500);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Launcher History</title>
+  <style>
+    body{margin:0;font-family:Roboto, sans-serif;background:rgb(14,20,31);color:#ddd}
+    .sidebar{position:fixed;top:0;left:0;right:0;height:3.5rem;background:rgb(0,181,0);border-bottom:0.4rem solid white;display:flex;align-items:center;justify-content:space-between;padding:0 12px;z-index:50}
+    .nav-list{display:flex;gap:18px;align-items:center;list-style:none}
+    .nav-list img{height:2.2rem;width:2.2rem;cursor:pointer}
+    .container{padding:5.8rem 18px 40px}
+    .header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .header h1{font-size:1.4rem}
+    .total-time{font-size:1rem;color:#f0f0f0}
+    .history-list{margin-top:18px;display:flex;flex-direction:column;gap:12px}
+    .item{display:flex;align-items:center;gap:12px;padding:10px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03)}
+    .thumb{width:60px;height:60px;border-radius:6px;flex:0 0 60px;object-fit:cover}
+    .meta{display:flex;flex-direction:column}
+    .meta .title{font-weight:700}
+    .meta .sub{font-size:0.9rem;color:#ccc}
+    .controls{margin-left:auto;display:flex;gap:8px}
+    .btn{padding:8px 10px;border-radius:6px;border:none;background:rgb(0,181,0);color:white;cursor:pointer}
+    .empty{padding:30px;text-align:center;color:#bbb}
+    @media (max-width:480px){.container{padding:5.8rem 12px}.thumb{width:48px;height:48px}}
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <div style="display:flex;gap:12px;align-items:center;padding-left:12px">
+      <img onclick="window.location.href='index.html'" src="images/home.png" style="height:2rem;width:2rem;cursor:pointer">
+      <div style="font-weight:700;color:#fff">Launcher History</div>
+    </div>
+    <div style="padding-right:12px;display:flex;gap:10px;align-items:center">
+      <img onclick="window.location.href='index.html'" src="images/home.png" style="height:2rem;width:2rem;cursor:pointer">
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="header">
+      <h1>Recently Played</h1>
+      <div class="total-time">Total Launcher Time: <span id="totalTime">00:00:00</span></div>
+    </div>
+
+    <div class="history-list" id="historyList"></div>
+    <div id="empty" class="empty" style="display:none">You haven't played any games yet. Play a game and it will appear here.</div>
+
+    <div style="margin-top:18px">
+      <button class="btn" onclick="window.location.href='index.html'">Back to Home</button>
+      <button class="btn" style="background:#4a4a4a;margin-left:8px" onclick="clearHistory()">Clear History</button>
+    </div>
+  </div>
+
+  <script>
+    const HISTORY_KEY='history';
+    const TOTAL_TIME_KEY='totalLauncherTime';
+
+    function secondsToHms(sec){sec=Number(sec);const h=Math.floor(sec/3600);const m=Math.floor((sec%3600)/60);const s=Math.floor(sec%60);return (h>0?String(h).padStart(2,'0')+':':'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
+    function readHistory(){try{return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]')}catch(e){return []}}
+    function writeHistory(a){localStorage.setItem(HISTORY_KEY,JSON.stringify(a))}
+
+    function render(){const list=document.getElementById('historyList');list.innerHTML='';const hist=readHistory();const total=Number(localStorage.getItem(TOTAL_TIME_KEY)||'0');document.getElementById('totalTime').textContent=secondsToHms(total);if(!hist.length){document.getElementById('empty').style.display='block';return}document.getElementById('empty').style.display='none';hist.sort((a,b)=>new Date(b.lastPlayed)-new Date(a.lastPlayed));hist.forEach(item=>{const el=document.createElement('div');el.className='item';const img=document.createElement('img');img.className='thumb';img.src=item.thumbnail||'images/placeholder.png';img.alt=item.name||'';const meta=document.createElement('div');meta.className='meta';const title=document.createElement('div');title.className='title';title.textContent=item.name||'Unknown';const sub=document.createElement('div');sub.className='sub';try{sub.textContent=`Played: ${item.plays||1} • Last: ${new Date(item.lastPlayed).toLocaleString()}`}catch(e){sub.textContent=`Played: ${item.plays||1}`}meta.appendChild(title);meta.appendChild(sub);const controls=document.createElement('div');controls.className='controls';const playBtn=document.createElement('button');playBtn.className='btn';playBtn.textContent='Play';playBtn.onclick=()=>{if(item.path)window.location.href=item.path};const removeBtn=document.createElement('button');removeBtn.className='btn';removeBtn.style.background='#c0392b';removeBtn.textContent='Remove';removeBtn.onclick=()=>removeFromHistory(item.path);controls.appendChild(playBtn);controls.appendChild(removeBtn);el.appendChild(img);el.appendChild(meta);el.appendChild(controls);list.appendChild(el)})}
+
+    function removeFromHistory(path){let hist=readHistory();hist=hist.filter(h=>h.path!==path);writeHistory(hist);render()}
+    function clearHistory(){if(!confirm('Clear all history?'))return;localStorage.removeItem(HISTORY_KEY);render()}
+
+    render();
+    setInterval(()=>{document.getElementById('totalTime').textContent=secondsToHms(Number(localStorage.getItem(TOTAL_TIME_KEY)||'0'))},1000);
+  </script>
+</body>
+</html>

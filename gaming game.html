@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Don't Get Caught!</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #222;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Courier New', Courier, monospace;
+            color: white;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background-image: url('classroom.jpeg');
+            background-size: cover;
+            background-position: center;
+            border: 4px solid #fff;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        /* UI Elements */
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px #000;
+            z-index: 10;
+        }
+
+        #points-display { color: #00ff00; }
+
+        /* Shop UI */
+        #shop {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #555;
+            z-index: 10;
+        }
+
+        #shop h3 { margin: 0 0 10px 0; color: gold; text-align: center; text-shadow: 1px 1px 2px #000; }
+        .shop-item { font-size: 14px; margin: 8px 0; }
+        .shop-key { background: #fff; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-right: 5px; }
+
+        /* Teacher Enemy */
+        #teacher {
+            position: absolute;
+            right: -300px;
+            top: 150px;
+            width: 280px;
+            transition: right 0.5s linear;
+            z-index: 5;
+            filter: drop-shadow(-5px 5px 5px rgba(0,0,0,0.5));
+        }
+
+        #warning {
+            position: absolute;
+            right: 20px;
+            top: 150px;
+            font-size: 60px;
+            color: red;
+            font-weight: bold;
+            text-shadow: 2px 2px 0 #000;
+            display: none;
+            z-index: 6;
+            animation: blink 0.5s infinite alternate;
+        }
+
+        @keyframes blink { from { opacity: 1; } to { opacity: 0; } }
+
+        /* --- DESK & COMPUTER SCREEN FIT --- */
+        #desk {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 500px;
+            text-align: center;
+            z-index: 8;
+        }
+
+        #computer { 
+            width: 100%; 
+            display: block; 
+            position: relative;
+            z-index: 1; 
+        }
+
+        #screen-bounds {
+            position: absolute;
+            top: 10%;      
+            left: 12%;     
+            width: 76%;    
+            height: 56%;   
+            background-color: #000;
+            border-radius: 4px; 
+            overflow: hidden;
+            z-index: 2; 
+        }
+
+        #work-screen, #game-screen {
+            width: 100%; 
+            height: 100%; 
+            object-fit: fill; 
+            pointer-events: none;
+        }
+
+        #work-screen { display: none; }
+        #game-screen { display: block; }
+
+        #hands {
+            position: absolute;
+            bottom: -20px; 
+            right: -50px; 
+            width: 150px;
+            z-index: 9; 
+            transition: bottom 0.1s;
+            pointer-events: none;
+        }
+
+        /* Animations for Distractions */
+        #ruler-anim {
+            position: absolute; width: 120px; top: 300px; left: -200px; z-index: 15;
+            pointer-events: none;
+        }
+
+        @keyframes flyRuler {
+            0% { left: -150px; top: 350px; transform: rotate(0deg); }
+            50% { top: 250px; }
+            100% { left: 900px; top: 350px; transform: rotate(1080deg); }
+        }
+
+        #friend-anim {
+            position: absolute; bottom: -400px; left: 50px; width: 200px; z-index: 15; transition: bottom 0.5s ease-out;
+            pointer-events: none;
+        }
+
+        .friend-show { bottom: 0px !important; }
+
+        #friend-anim img { width: 100%; border-radius: 10px; box-shadow: 0 0 10px #000; }
+
+        .shout-bubble {
+            position: absolute; top: -40px; left: 120px; background: white; color: black; padding: 10px; border-radius: 20px; font-weight: bold; font-size: 18px; white-space: nowrap; box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+        }
+
+        .shout-bubble::after {
+            content: ''; position: absolute; bottom: -10px; left: 20px; border-width: 10px 10px 0 0; border-style: solid; border-color: white transparent transparent transparent;
+        }
+
+        /* Game Over Screen */
+        #overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20;
+        }
+
+        #overlay h1 { color: red; font-size: 60px; margin: 0; text-align: center; text-shadow: 2px 2px 4px #000;}
+        #overlay p { font-size: 20px; margin-bottom: 30px; text-align: center; padding: 0 20px; }
+        button { padding: 10px 20px; font-size: 20px; cursor: pointer; background-color: #fff; color: #000; border: none; border-radius: 5px; font-weight: bold; }
+        button:hover { background-color: #ccc; }
+        #instructions { position: absolute; bottom: 10px; left: 10px; font-size: 16px; color: white; text-shadow: 1px 1px 2px black; z-index: 10; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="ui-layer">
+            <div>Play Time: <span id="time-display">0.0</span>s</div>
+            <div>Points: <span id="points-display">0</span></div>
+            <div>High Score: <span id="highscore-display">0.0</span>s</div>
+        </div>
+
+        <div id="shop">
+            <h3>DISTRACTIONS</h3>
+            <div class="shop-item"><span class="shop-key">1</span> Throw Ruler (50 pts)</div>
+            <div class="shop-item"><span class="shop-key">2</span> Friend Shout (150 pts)</div>
+        </div>
+
+        <div id="warning">!</div>
+        <img id="teacher" src="vegan Karen teacher.jpeg" alt="Teacher">
+
+        <img id="ruler-anim" src="ruler.jpeg" alt="Ruler">
+        
+        <div id="friend-anim">
+            <div class="shout-bubble">HEY TEACHER!</div>
+            <img src="freind.jpeg" alt="Friend">
+        </div>
+
+        <div id="desk">
+            <div id="screen-bounds">
+                <img id="work-screen" src="work.jpeg" alt="School Work">
+                <video id="game-screen" src="Screen recording 2026-03-31 9.05.08 AM.webm" loop muted></video>
+            </div>
+            <img id="computer" src="computer.jpeg" alt="Computer">
+            <img id="hands" src="hands.jpeg" alt="Hands on keyboard">
+        </div>
+
+        <div id="instructions">RELEASE [SPACEBAR] TO PLAY GAME.<br>HOLD TO DO WORK.</div>
+
+        <div id="overlay">
+            <h1 id="overlay-title">DON'T GET CAUGHT!</h1>
+            <p id="overlay-desc">Release Spacebar to play your game and earn Points.<br>HOLD Spacebar to work when the teacher looks!</p>
+            <button id="start-btn" onclick="startGame()">Start Game</button>
+        </div>
+    </div>
+
+    <audio id="oof-sound" src="Oof.wav"></audio>
+
+    <script>
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlay-title');
+        const overlayDesc = document.getElementById('overlay-desc');
+        const startBtn = document.getElementById('start-btn');
+        const timeDisplay = document.getElementById('time-display');
+        const pointsDisplay = document.getElementById('points-display');
+        const highScoreDisplay = document.getElementById('highscore-display');
+        
+        const workScreen = document.getElementById('work-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const hands = document.getElementById('hands');
+        const teacher = document.getElementById('teacher');
+        const warning = document.getElementById('warning');
+        const oofSound = document.getElementById('oof-sound');
+
+        const rulerAnim = document.getElementById('ruler-anim');
+        const friendAnim = document.getElementById('friend-anim');
+
+        let isGameOver = true;
+        let isWorking = false; 
+        let playTime = 0; 
+        let points = 0;   
+        let highScore = 0;
+        let gameLoopInt;
+        let teacherLoopInt;
+        let friendTimer;
+        let spaceHeld = false; 
+        
+        let teacherState = 'AWAY'; 
+
+        window.addEventListener('keydown', (e) => {
+            if (e.repeat) return;
+            if (e.code === 'Space') {
+                e.preventDefault();
+                spaceHeld = true;
+                if (!isGameOver && !isWorking) switchToWork();
+            }
+            if (!isGameOver) {
+                if (e.code === 'Digit1') buyRuler();
+                if (e.code === 'Digit2') buyFriend();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                spaceHeld = false;
+                if (!isGameOver && isWorking) switchToGame();
+            }
+        });
+
+        window.addEventListener('blur', () => {
+            if (!isGameOver) {
+                spaceHeld = false;
+                switchToWork();
+            }
+        });
+
+        function switchToWork() {
+            isWorking = true;
+            workScreen.style.display = 'block';
+            gameScreen.style.display = 'none';
+            gameScreen.pause();
+            hands.style.bottom = '0px'; 
+        }
+
+        function switchToGame() {
+            isWorking = false;
+            workScreen.style.display = 'none';
+            gameScreen.style.display = 'block';
+            gameScreen.play().catch(err => console.log("Video auto-play blocked"));
+            hands.style.bottom = '-20px'; 
+        }
+
+        function startGame() {
+            // Fixes the bug where clicking start with a mouse keeps the button focused
+            startBtn.blur(); 
+
+            isGameOver = false;
+            playTime = 0;
+            points = 0;
+            updateUI();
+            
+            teacherState = 'AWAY';
+            teacher.style.right = '-300px';
+            warning.style.display = 'none';
+            overlay.style.display = 'none';
+            gameScreen.currentTime = 0; 
+            
+            rulerAnim.style.animation = 'none';
+            friendAnim.classList.remove('friend-show');
+            clearTimeout(friendTimer);
+            
+            if (spaceHeld) { switchToWork(); } 
+            else { switchToGame(); }
+
+            clearInterval(gameLoopInt);
+            clearTimeout(teacherLoopInt);
+            gameLoopInt = setInterval(gameLoop, 100); 
+            scheduleTeacherMove(0);
+        }
+
+        function updateUI() {
+            timeDisplay.innerText = playTime.toFixed(1);
+            pointsDisplay.innerText = Math.floor(points);
+        }
+
+        function gameLoop() {
+            if (isGameOver) return;
+
+            if (!isWorking) {
+                playTime += 0.1;
+                points += 0.2; 
+                updateUI();
+            }
+
+            if (teacherState === 'LOOKING' && !isWorking) {
+                triggerGameOver();
+            }
+        }
+
+        function buyRuler() {
+            if (points >= 50) {
+                points -= 50;
+                updateUI();
+                
+                rulerAnim.style.animation = 'none';
+                void rulerAnim.offsetWidth; 
+                rulerAnim.style.animation = 'flyRuler 1.2s linear forwards';
+
+                banishTeacher(2500);
+            }
+        }
+
+        function buyFriend() {
+            if (points >= 150) {
+                points -= 150;
+                updateUI();
+                
+                friendAnim.classList.add('friend-show');
+
+                clearTimeout(friendTimer);
+                friendTimer = setTimeout(() => {
+                    friendAnim.classList.remove('friend-show');
+                }, 3000);
+
+                banishTeacher(5000);
+            }
+        }
+
+        function banishTeacher(extraDelay) {
+            teacherState = 'AWAY';
+            teacher.style.right = '-300px';
+            warning.style.display = 'none';
+            clearTimeout(teacherLoopInt); 
+            scheduleTeacherMove(extraDelay);
+        }
+
+        function scheduleTeacherMove(bonusDelay = 0) {
+            if (isGameOver) return;
+            const delay = (Math.random() * 3000) + 2000 + bonusDelay; 
+            
+            clearTimeout(teacherLoopInt);
+            teacherLoopInt = setTimeout(() => {
+                if(!isGameOver) startTeacherApproach();
+            }, delay);
+        }
+
+        function startTeacherApproach() {
+            teacherState = 'APPROACHING';
+            warning.style.display = 'block'; 
+            
+            clearTimeout(teacherLoopInt);
+            teacherLoopInt = setTimeout(() => {
+                if (isGameOver) return;
+                warning.style.display = 'none';
+                teacherState = 'LOOKING';
+                teacher.style.right = '0px'; 
+
+                clearTimeout(teacherLoopInt);
+                teacherLoopInt = setTimeout(() => {
+                    if (isGameOver) return;
+                    teacherState = 'AWAY';
+                    teacher.style.right = '-300px'; 
+                    scheduleTeacherMove(0); 
+                }, Math.random() * 1500 + 1500);
+
+            }, 1500);
+        }
+
+        function triggerGameOver() {
+            isGameOver = true;
+            clearInterval(gameLoopInt);
+            clearTimeout(teacherLoopInt);
+            gameScreen.pause();
+
+            oofSound.currentTime = 0;
+            oofSound.play().catch(err => console.log("Audio playback error"));
+
+            if (playTime > highScore) {
+                highScore = playTime;
+                highScoreDisplay.innerText = highScore.toFixed(1);
+            }
+
+            overlayTitle.innerText = "CAUGHT!";
+            overlayDesc.innerHTML = `You survived for <b>${playTime.toFixed(1)}</b> seconds.`;
+            startBtn.innerText = "Try Again";
+            overlay.style.display = 'flex';
+            spaceHeld = false;
+        }
+    </script>
+</body>
+</html>
